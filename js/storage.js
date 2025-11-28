@@ -203,7 +203,9 @@ const upsertRemote = async (k, v) => {
             return false;
         }
         
-        const { error } = await supabase.from("planning_web_key_value_store").upsert({ planning_web_kv_key: k, planning_web_kv_value: jsonValue }); 
+        const { error } = await supabase
+            .from("planning_web_key_value_store")
+            .upsert({ planning_web_kv_key: k, planning_web_kv_value: jsonValue }, { onConflict: 'planning_web_kv_key' }); 
         if (error) {
             console.error('❌ Error en upsertRemote:', error);
             return false;
