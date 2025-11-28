@@ -203,7 +203,7 @@ const upsertRemote = async (k, v) => {
             return false;
         }
         
-        const { error } = await supabase.from("kv").upsert({ key: k, value: jsonValue }); 
+        const { error } = await supabase.from("planning_web_key_value_store").upsert({ planning_web_kv_key: k, planning_web_kv_value: jsonValue }); 
         if (error) {
             console.error('❌ Error en upsertRemote:', error);
             return false;
@@ -217,7 +217,7 @@ const upsertRemote = async (k, v) => {
 
 const deleteRemote = async (k) => { 
     try { 
-        const { error } = await supabase.from("kv").delete().eq("key", k); 
+        const { error } = await supabase.from("planning_web_key_value_store").delete().eq("planning_web_kv_key", k); 
         if (error) {
             console.error('❌ Error en deleteRemote:', error);
             return false;
@@ -231,82 +231,82 @@ const deleteRemote = async (k) => {
 
 const fetchRemote = async (k) => { 
     try { 
-        const { data, error } = await supabase.from("kv").select("value").eq("key", k).maybeSingle(); 
+        const { data, error } = await supabase.from("planning_web_key_value_store").select("planning_web_kv_value").eq("planning_web_kv_key", k).maybeSingle(); 
         if (error) {
             console.error('❌ Error en fetchRemote:', error);
             return null;
         }
         
-        if (!data || !data.value) {
+        if (!data || !data.planning_web_kv_value) {
             return null;
         }
         
         // Validar JSON antes de retornar
         try {
             // Si ya es JSONB (viene de Supabase), retornar directamente
-            if (data.value && typeof data.value === 'object') {
-                return data.value;
+            if (data.planning_web_kv_value && typeof data.planning_web_kv_value === 'object') {
+                return data.planning_web_kv_value;
             }
             
             // Para lastVisit: si es un día de la semana, devolver directamente sin parsear
             if (k === 'agendasmart:lastVisit') {
                 const validDays = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
-                if (validDays.includes(data.value)) {
-                    console.log('🔧 lastVisit detectado, devolviendo directamente:', data.value);
-                    return data.value;
+                if (validDays.includes(data.planning_web_kv_value)) {
+                    console.log('🔧 lastVisit detectado, devolviendo directamente:', data.planning_web_kv_value);
+                    return data.planning_web_kv_value;
                 }
             }
             
             // Si es string, intentar parsear
-            const parsed = JSON.parse(data.value);
+            const parsed = JSON.parse(data.planning_web_kv_value);
             return parsed;
         } catch (parseError) {
             console.error(`❌ JSON corrupto en clave ${k}:`, parseError);
-            console.log('🔧 Valor corrupto:', data.value, 'Tipo:', typeof data.value);
+            console.log('🔧 Valor corrupto:', data.planning_web_kv_value, 'Tipo:', typeof data.planning_web_kv_value);
             
             // Si es un objeto que vino de Supabase, retornarlo directamente
-            if (typeof data.value === 'object' && data.value !== null) {
-                console.log('🔧 Retornando objeto JSONB directamente:', data.value);
-                return data.value;
+            if (typeof data.planning_web_kv_value === 'object' && data.planning_web_kv_value !== null) {
+                console.log('🔧 Retornando objeto JSONB directamente:', data.planning_web_kv_value);
+                return data.planning_web_kv_value;
             }
             
             // Intentar limpiar datos corruptos comunes
             // Para lastVisit: si es un día de la semana, devolver directamente
-            if (data.value === '"sat"' || data.value === '"sun"' || data.value === '"mon"' || data.value === '"tue"' || data.value === '"wed"' || data.value === '"thu"' || data.value === '"fri"') {
-                console.log('🔧 Corrigiendo día de semana:', data.value);
-                return JSON.parse(data.value); // Parsear el string JSON para obtener el día
+            if (data.planning_web_kv_value === '"sat"' || data.planning_web_kv_value === '"sun"' || data.planning_web_kv_value === '"mon"' || data.planning_web_kv_value === '"tue"' || data.planning_web_kv_value === '"wed"' || data.planning_web_kv_value === '"thu"' || data.planning_web_kv_value === '"fri"') {
+                console.log('🔧 Corrigiendo día de semana:', data.planning_web_kv_value);
+                return JSON.parse(data.planning_web_kv_value); // Parsear el string JSON para obtener el día
             }
             
             // Para días sin comillas (caso raro)
-            if (data.value === 'sat' || data.value === 'sun' || data.value === 'mon' || data.value === 'tue' || data.value === 'wed' || data.value === 'thu' || data.value === 'fri') {
-                console.log('🔧 Corrigiendo día de semana sin comillas:', data.value);
-                return data.value; // Devolver el string directamente
+            if (data.planning_web_kv_value === 'sat' || data.planning_web_kv_value === 'sun' || data.planning_web_kv_value === 'mon' || data.planning_web_kv_value === 'tue' || data.planning_web_kv_value === 'wed' || data.planning_web_kv_value === 'thu' || data.planning_web_kv_value === 'fri') {
+                console.log('🔧 Corrigiendo día de semana sin comillas:', data.planning_web_kv_value);
+                return data.planning_web_kv_value; // Devolver el string directamente
             }
             
             // Para arrays/objetos vacíos, intentar parsear
-            if (data.value === '[]' || data.value === '{}') {
-                console.log('🔧 Corrigiendo array/object vacío:', data.value);
-                return JSON.parse(data.value); // Parsear correctamente
+            if (data.planning_web_kv_value === '[]' || data.planning_web_kv_value === '{}') {
+                console.log('🔧 Corrigiendo array/object vacío:', data.planning_web_kv_value);
+                return JSON.parse(data.planning_web_kv_value); // Parsear correctamente
             }
             
             // Para arrays/objetos vacíos con formato JSON correcto
-            if (data.value === '"[]"' || data.value === '"{}"') {
-                console.log('🔧 Corrigiendo array/object vacío con comillas:', data.value);
-                return JSON.parse(data.value); // Parsear el string JSON
+            if (data.planning_web_kv_value === '"[]"' || data.planning_web_kv_value === '"{}"') {
+                console.log('🔧 Corrigiendo array/object vacío con comillas:', data.planning_web_kv_value);
+                return JSON.parse(data.planning_web_kv_value); // Parsear el string JSON
             }
             
             // Corregir datos notificados que se guardaron como [object Object]
-            if (data.value === '[object Object]') {
-                console.log('🔧 Corrigiendo [object Object]:', data.value);
+            if (data.planning_web_kv_value === '[object Object]') {
+                console.log('🔧 Corrigiendo [object Object]:', data.planning_web_kv_value);
                 return {}; // Devolver objeto vacío
             }
             
             // Corregir objetos que se guardaron como string sin comillas
-            if (typeof data.value === 'string' && data.value.startsWith('{') && data.value.includes('true') && !data.value.includes('"')) {
-                console.log('🔧 Corrigiendo objeto sin comillas:', data.value);
+            if (typeof data.planning_web_kv_value === 'string' && data.planning_web_kv_value.startsWith('{') && data.planning_web_kv_value.includes('true') && !data.planning_web_kv_value.includes('"')) {
+                console.log('🔧 Corrigiendo objeto sin comillas:', data.planning_web_kv_value);
                 try {
                     // Agregar comillas a las claves
-                    const fixed = data.value.replace(/(\w+):/g, '"$1":');
+                    const fixed = data.planning_web_kv_value.replace(/(\w+):/g, '"$1":');
                     return JSON.parse(fixed);
                 } catch {
                     console.log('🔧 No se pudo corregir objeto sin comillas, devolviendo objeto vacío');
@@ -315,11 +315,11 @@ const fetchRemote = async (k) => {
             }
             
             // Corregir strings que parecen objetos pero están mal formados
-            if (typeof data.value === 'string' && data.value.includes('{') && data.value.includes('}')) {
-                console.log('🔧 Intentando corregir objeto mal formado:', data.value);
+            if (typeof data.planning_web_kv_value === 'string' && data.planning_web_kv_value.includes('{') && data.planning_web_kv_value.includes('}')) {
+                console.log('🔧 Intentando corregir objeto mal formado:', data.planning_web_kv_value);
                 try {
                     // Intentar parsear directamente
-                    return JSON.parse(data.value);
+                    return JSON.parse(data.planning_web_kv_value);
                 } catch {
                     // Si falla, devolver objeto vacío
                     console.log('🔧 No se pudo corregir, devolviendo objeto vacío');
@@ -337,14 +337,14 @@ const fetchRemote = async (k) => {
 
 const listRemoteKeys = async () => { 
     try { 
-        const { data, error } = await supabase.from("kv").select("key"); 
+        const { data, error } = await supabase.from("planning_web_key_value_store").select("planning_web_kv_key"); 
         if (error) {
             console.error('❌ Error en listRemoteKeys:', error);
             return []; 
         }
         
         return (data || [])
-            .map(x => x.key)
+            .map(x => x.planning_web_kv_key)
             .filter(k => typeof k === "string" && k.startsWith(NS))
             .map(k => k.substring(NS.length)); 
     } catch (error) { 
