@@ -299,7 +299,7 @@ const exportJSON = async () => {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "agendasmart-routines.json";
+  a.download = "planningweb-routines.json";
   a.click();
 };
 

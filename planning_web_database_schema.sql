@@ -28,7 +28,7 @@ CREATE TABLE planning_web_key_value_store (
 -- Add table comment for documentation
 COMMENT ON TABLE planning_web_key_value_store IS 'Key-value store for planning_web application data including routines, widgets, and settings';
 COMMENT ON COLUMN planning_web_key_value_store.planning_web_kv_id IS 'Primary key, auto-incrementing ID';
-COMMENT ON COLUMN planning_web_key_value_store.planning_web_kv_key IS 'Unique key identifier (e.g., agendasmart:routines)';
+COMMENT ON COLUMN planning_web_key_value_store.planning_web_kv_key IS 'Unique key identifier (e.g., planningweb:routines)';
 COMMENT ON COLUMN planning_web_key_value_store.planning_web_kv_value IS 'JSON value stored for the key';
 COMMENT ON COLUMN planning_web_key_value_store.planning_web_kv_created_at IS 'Timestamp when record was created';
 COMMENT ON COLUMN planning_web_key_value_store.planning_web_kv_updated_at IS 'Timestamp when record was last updated';
@@ -91,11 +91,11 @@ CREATE TRIGGER planning_web_kv_update_timestamp
 -- Uncomment the following lines to insert sample/default data
 -- INSERT INTO planning_web_key_value_store (planning_web_kv_key, planning_web_kv_value) 
 -- VALUES 
---   ('agendasmart:routines', '[]'::jsonb),
---   ('agendasmart:widgets', '[]'::jsonb),
---   ('agendasmart:activeRoutineId', '""'::jsonb),
---   ('agendasmart:notifyBeforeStart', '10'::jsonb),
---   ('agendasmart:notifyBeforeEnd', '5'::jsonb);
+--   ('planningweb:routines', '[]'::jsonb),
+--   ('planningweb:widgets', '[]'::jsonb),
+--   ('planningweb:activeRoutineId', '""'::jsonb),
+--   ('planningweb:notifyBeforeStart', '10'::jsonb),
+--   ('planningweb:notifyBeforeEnd', '5'::jsonb);
 
 -- ============================================================================
 -- VERIFICATION QUERIES

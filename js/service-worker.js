@@ -16,7 +16,7 @@ self.addEventListener('notificationclick', (event) => {
 });
 self.addEventListener('push', (event) => {
     const data = (() => { try { return event.data ? event.data.json() : {}; } catch { return {}; } })();
-    const title = data.title || 'AgendaSmart';
+    const title = data.title || 'Planning Web';
     const options = { body: data.body || '', icon: data.icon || undefined, badge: data.badge || undefined, data: data.data || {} };
     event.waitUntil(self.registration.showNotification(title, options));
 });

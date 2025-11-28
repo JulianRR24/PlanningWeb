@@ -419,7 +419,7 @@ const wireSettings = async () => {
             updatePermStates();
             if (res === 'granted') {
                 const body = { body: 'Notificaciones activadas' };
-                if (swReg?.showNotification) swReg.showNotification('AgendaSmart', body); else new Notification('AgendaSmart', body);
+                if (swReg?.showNotification) swReg.showNotification('Planning Web', body); else new Notification('Planning Web', body);
             }
         } catch { }
     });

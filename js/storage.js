@@ -106,7 +106,7 @@ const isValidData = (data, key) => {
     return true;
 };
 
-const NS = "agendasmart:";
+const NS = "planningweb:";
 const BACKUP_PREFIX = "backup:";
 
 const keyPrefix = (k) => NS + k;
@@ -249,7 +249,7 @@ const fetchRemote = async (k) => {
             }
             
             // Para lastVisit: si es un día de la semana, devolver directamente sin parsear
-            if (k === 'agendasmart:lastVisit') {
+            if (k === 'planningweb:lastVisit') {
                 const validDays = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
                 if (validDays.includes(data.planning_web_kv_value)) {
                     console.log('🔧 lastVisit detectado, devolviendo directamente:', data.planning_web_kv_value);
