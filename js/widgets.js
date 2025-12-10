@@ -120,8 +120,8 @@ const renderList = async () => {
     });
 };
 
-const toggleWidget = (id) => {
-    const list = getItem("widgets") || [];
+const toggleWidget = async (id) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === id);
     if (idx < 0) return;
     const visible = list.filter(x => x.enabled).length;
@@ -131,8 +131,8 @@ const toggleWidget = (id) => {
     renderList();
 };
 
-const deleteWidget = (id) => {
-    const list = getItem("widgets") || [];
+const deleteWidget = async (id) => {
+    const list = await getItem("widgets") || [];
     setItem("widgets", list.filter(x => x.id !== id));
     renderList();
 };
@@ -149,10 +149,10 @@ const renderMarketEditor = (w) => {
     add.textContent = "Agregar";
     form.appendChild(input);
     form.appendChild(add);
-    on(add, "click", () => {
+    on(add, "click", async () => {
         const text = input.value.trim();
         if (!text) return;
-        const list = getItem("widgets") || [];
+        const list = await getItem("widgets") || [];
         const idx = list.findIndex(x => x.id === w.id);
         if (idx < 0) return;
         list[idx].items = [...(list[idx].items || []), { id: uid("m_"), text, done: false }];
@@ -185,8 +185,8 @@ const renderMarketEditor = (w) => {
     return wrap;
 };
 
-const toggleMarketItem = (wid, iid) => {
-    const list = getItem("widgets") || [];
+const toggleMarketItem = async (wid, iid) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     const items = list[idx].items || [];
@@ -197,8 +197,8 @@ const toggleMarketItem = (wid, iid) => {
     renderList();
 };
 
-const editMarketItem = (wid, iid, text) => {
-    const list = getItem("widgets") || [];
+const editMarketItem = async (wid, iid, text) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     const items = list[idx].items || [];
@@ -208,8 +208,8 @@ const editMarketItem = (wid, iid, text) => {
     setItem("widgets", list);
 };
 
-const deleteMarketItem = (wid, iid) => {
-    const list = getItem("widgets") || [];
+const deleteMarketItem = async (wid, iid) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     list[idx].items = (list[idx].items || []).filter(x => x.id !== iid);
@@ -229,10 +229,10 @@ const renderNotesEditor = (w) => {
     add.textContent = "Agregar";
     form.appendChild(input);
     form.appendChild(add);
-    on(add, "click", () => {
+    on(add, "click", async () => {
         const text = input.value.trim();
         if (!text) return;
-        const list = getItem("widgets") || [];
+        const list = await getItem("widgets") || [];
         const idx = list.findIndex(x => x.id === w.id);
         if (idx < 0) return;
         list[idx].items = [...(list[idx].items || []), { id: uid("n_"), text, done: false }];
@@ -265,8 +265,8 @@ const renderNotesEditor = (w) => {
     return wrap;
 };
 
-const toggleNoteItem = (wid, iid) => {
-    const list = getItem("widgets") || [];
+const toggleNoteItem = async (wid, iid) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     const items = list[idx].items || [];
@@ -277,8 +277,8 @@ const toggleNoteItem = (wid, iid) => {
     renderList();
 };
 
-const editNoteItem = (wid, iid, text) => {
-    const list = getItem("widgets") || [];
+const editNoteItem = async (wid, iid, text) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     const items = list[idx].items || [];
@@ -288,8 +288,8 @@ const editNoteItem = (wid, iid, text) => {
     setItem("widgets", list);
 };
 
-const deleteNoteItem = (wid, iid) => {
-    const list = getItem("widgets") || [];
+const deleteNoteItem = async (wid, iid) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     list[idx].items = (list[idx].items || []).filter(x => x.id !== iid);
@@ -309,10 +309,10 @@ const renderQuotesEditor = (w) => {
     add.textContent = "Agregar";
     form.appendChild(input);
     form.appendChild(add);
-    on(add, "click", () => {
+    on(add, "click", async () => {
         const text = input.value.trim();
         if (!text) return;
-        const list = getItem("widgets") || [];
+        const list = await getItem("widgets") || [];
         const idx = list.findIndex(x => x.id === w.id);
         if (idx < 0) return;
         list[idx].items = [...(list[idx].items || []), { id: uid("q_"), text }];
@@ -340,8 +340,8 @@ const renderQuotesEditor = (w) => {
     return wrap;
 };
 
-const editQuoteItem = (wid, iid, text) => {
-    const list = getItem("widgets") || [];
+const editQuoteItem = async (wid, iid, text) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     const items = list[idx].items || [];
@@ -351,8 +351,8 @@ const editQuoteItem = (wid, iid, text) => {
     setItem("widgets", list);
 };
 
-const deleteQuoteItem = (wid, iid) => {
-    const list = getItem("widgets") || [];
+const deleteQuoteItem = async (wid, iid) => {
+    const list = await getItem("widgets") || [];
     const idx = list.findIndex(x => x.id === wid);
     if (idx < 0) return;
     list[idx].items = (list[idx].items || []).filter(x => x.id !== iid);
@@ -373,9 +373,9 @@ const renderPicoPlacaEditor = (w) => {
     const save = document.createElement("button");
     save.className = "px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700";
     save.textContent = "Guardar dígito";
-    on(save, "click", () => {
+    on(save, "click", async () => {
         const digit = String(Math.max(0, Math.min(9, Number(input.value))))
-        const list = getItem("widgets") || [];
+        const list = await getItem("widgets") || [];
         const idx = list.findIndex(x => x.id === w.id);
         if (idx < 0) return;
         list[idx].plateDigit = digit;
