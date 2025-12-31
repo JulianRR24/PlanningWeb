@@ -1,12 +1,13 @@
 import { getItem, setItem, syncFromRemote } from "./storage.js";
 import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop } from "./ui.js";
+import { initOneSignal } from "./push.js";
 
 let swReg = null;
 
 const registerServiceWorker = async () => {
     try {
         if (!('serviceWorker' in navigator)) return;
-        swReg = await navigator.serviceWorker.register('./js/service-worker.js');
+        swReg = await navigator.serviceWorker.register('./service-worker.js');
         await navigator.serviceWorker.ready;
     } catch { }
 };
@@ -362,6 +363,7 @@ const initHome = async () => {
         await ensureBootstrapData();
         await wireSettings();
         registerServiceWorker();
+        initOneSignal(); // Initialize OneSignal
         await renderWidgetsOnHome();
         hoursColumn();
         await dayGridLayout();

@@ -1,9 +1,23 @@
 {
     "name": "PlanningHub",
     "short_name": "PlanningHub",
+    "id": "/planning-web/",
     "start_url": "./index.html",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#0f172a",
-    "lang": "es-CO"
+    "lang": "es-CO",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "./assets/icons/icon-192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "./assets/icons/icon-512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ]
 }

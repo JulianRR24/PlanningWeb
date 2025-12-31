@@ -1,3 +1,7 @@
 {
-    "liveServer.settings.port": 5502
+    "liveServer.settings.port": 5502,
+    "deno.enable": true,
+    "deno.enablePaths": ["supabase"],
+    "deno.unstable": true,
+    "editor.defaultFormatter": "denoland.vscode-deno"
 }
