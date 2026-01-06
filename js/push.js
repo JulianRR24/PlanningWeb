@@ -10,14 +10,17 @@ const ONESIGNAL_APP_ID = "2d86bc3b-c723-4b2a-a414-7724e0018c27";
 
 export const initOneSignal = async () => {
     try {
+        console.log("🚀 Starting OneSignal Init..."); // DEBUG
         window.OneSignalDeferred = window.OneSignalDeferred || [];
         
         // 🔒 iOS PWA Check: Only init if installed (Standalone)
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator['standalone'];
 
+        console.log(`📱 Device Check: iOS=${isIOS}, Standalone=${isStandalone}`); // DEBUG
+
         if (isIOS && !isStandalone) {
-            console.log("📱 iOS detected but not standalone: Skipping OneSignal init");
+            console.log("� iOS detected but not standalone: Skipping OneSignal init");
             return;
         }
 
