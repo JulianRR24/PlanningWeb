@@ -408,11 +408,12 @@ const wireSettings = async () => {
     if (neEl) neEl.value = ne;
     on(settingsBtn, "click", () => { if (modal) { modal.classList.remove("hidden"); modal.classList.add("flex"); } });
     on(closeBtn, "click", () => { if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); } });
-    on(saveSettings, "click", () => {
+    on(saveSettings, "click", async () => {
         const v1 = Number(nsEl?.value || 10);
         const v2 = Number(neEl?.value || 5);
-        setItem("notifyBeforeStart", Math.max(0, v1));
-        setItem("notifyBeforeEnd", Math.max(0, v2));
+        console.log(`💾 Guardando configuración: Inicio=${v1}, Fin=${v2}`);
+        await setItem("notifyBeforeStart", Math.max(0, v1), true);
+        await setItem("notifyBeforeEnd", Math.max(0, v2), true);
         if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); }
     });
     on(askNotifyPerm, "click", async () => {
