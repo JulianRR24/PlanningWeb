@@ -30,9 +30,13 @@ export const initOneSignal = async () => {
                 appId: ONESIGNAL_APP_ID,
                 safari_web_id: "web.onesignal.auto.147da6f8-95e8-4f3e-9e77-8dc52e1c58f0",
                 notifyButton: {
-                    enable: true, // Allow user to subscribe manually if they dismissed prompt
+                    enable: true, 
                 },
-                allowLocalhostAsSecureOrigin: true, // Helpful for dev
+                allowLocalhostAsSecureOrigin: true,
+            }).then(() => {
+                console.log("✅ OneSignal Init Success");
+            }).catch(err => {
+                console.error("❌ OneSignal Init Failed:", err);
             });
 
             // Prevent duplicate notifications when app is open (App.js handles it locally)
