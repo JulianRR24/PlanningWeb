@@ -417,18 +417,31 @@ const wireSettings = async () => {
     });
     on(askNotifyPerm, "click", async () => {
         try {
-            // Use OneSignal to request permission so it registers the device immediately
-            if (window.OneSignalDeferred) {
+            console.log("🖱️ Botón de permisos clickeado");
+            
+            // 1. Verificar si OneSignal ya cargó
+            if (window.OneSignal && window.OneSignal.Notifications) {
+                console.log("🔔 Solicitando permiso vía OneSignal (SDK OK)...");
+                await window.OneSignal.Notifications.requestPermission();
+                updatePermStates();
+            } 
+            // 2. Si aún no carga, usar la cola (Deferred)
+            else if (window.OneSignalDeferred) {
+                console.log("⏳ OneSignal cargando... encolando solicitud");
                 window.OneSignalDeferred.push(async (OneSignal) => {
                     await OneSignal.Notifications.requestPermission();
                     updatePermStates();
                 });
-            } else {
-                // Fallback (unlikely)
+            } 
+            // 3. Fallback crítico
+            else {
+                console.warn("⚠️ OneSignal no detectado. Usando API nativa.");
                 await Notification.requestPermission();
                 updatePermStates();
             }
-        } catch { }
+        } catch (e) {
+            console.error("❌ Error al solicitar permisos:", e);
+        }
     });
     on(askGeoPerm, "click", async () => {
         try {
