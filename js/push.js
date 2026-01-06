@@ -28,7 +28,7 @@ export const initOneSignal = async () => {
         OneSignalDeferred.push(async function(OneSignal) {
             await OneSignal.init({
                 appId: ONESIGNAL_APP_ID,
-                safari_web_id: "web.onesignal.auto.bf47764d-90b5-4122-8321-xxx", // Optional: for Safari legacy
+                safari_web_id: "web.onesignal.auto.147da6f8-95e8-4f3e-9e77-8dc52e1c58f0",
                 notifyButton: {
                     enable: true, // Allow user to subscribe manually if they dismissed prompt
                 },
