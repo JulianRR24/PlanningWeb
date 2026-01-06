@@ -155,8 +155,26 @@ serve(async (req: Request) => {
         results.push(resJson)
     }
 
+    // 🔍 DEBUG INFO (Return this to help user debug)
+    const debugInfo = {
+        serverTimeUTC: now.toISOString(),
+        localTimeCol: localNow.toISOString(),
+        nowMin,
+        offset,
+        devicesFound: playerIds.length,
+        activeRoutineId,
+        eventsToday: events.length,
+        secretsConfigured: {
+            appId: !!Deno.env.get('ONESIGNAL_APP_ID'),
+            apiKey: !!Deno.env.get('ONESIGNAL_REST_API_KEY')
+        },
+        notificationsSent: results.length
+    }
+    
+    console.log("Debug Info:", debugInfo)
+
     return new Response(
-      JSON.stringify({ success: true, results, checkedTime: localNow, notifications: notificationsToSend.length }),
+      JSON.stringify({ success: true, results, debug: debugInfo }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

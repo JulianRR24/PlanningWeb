@@ -65,29 +65,35 @@ export const initOneSignal = async () => {
 
 const updateSubscription = async (deviceId) => {
     const OneSignal = window.OneSignal;
-    if (!OneSignal) return;
+    if (!OneSignal) {
+        console.error("❌ OneSignal global object not found in updateSubscription");
+        return;
+    }
 
     const id = OneSignal.User.PushSubscription.id;
     const token = OneSignal.User.PushSubscription.token;
     const optedIn = OneSignal.User.PushSubscription.optedIn;
 
-    console.log("🔔 OneSignal State:", { id, token, optedIn });
+    console.log(`🔔 OneSignal Subscription State Check:
+    - ID: ${id}
+    - Token: ${token ? 'Present' : 'Missing'}
+    - OptedIn: ${optedIn}
+    - Local Device ID: ${deviceId}`);
 
     if (optedIn && id) {
         // Guardar dispositivo en Supabase
-        // Usamos una clave única por dispositivo para evitar condiciones de carrera
-        // formata: planningweb:device:<UUID>
         const deviceData = {
-            playerId: id, // Subscription ID in OneSignal v16+
+            playerId: id,
             token: token,
             lastActive: Date.now(),
             platform: navigator.platform,
             userAgent: navigator.userAgent
         };
 
-        // Usamos setItem de storage.js que ya maneja la sincronización con Supabase (upsert)
-        // syncRemote = true
-        await setItem(`device:${deviceId}`, deviceData, true);
-        console.log("✅ Dispositivo registrado en Supabase:", deviceId);
+        console.log("💾 Attempting to save device to Supabase...", deviceData);
+        const ok = await setItem(`device:${deviceId}`, deviceData, true);
+        console.log(`✅ setItem result: ${ok ? 'Success' : 'Failed'}`);
+    } else {
+        console.warn("⚠️ Skipping Supabase registration: User not opted in or ID missing.");
     }
 };
