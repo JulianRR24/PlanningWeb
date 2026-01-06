@@ -417,11 +417,16 @@ const wireSettings = async () => {
     });
     on(askNotifyPerm, "click", async () => {
         try {
-            const res = await Notification.requestPermission();
-            updatePermStates();
-            if (res === 'granted') {
-                const body = { body: 'Notificaciones activadas' };
-                if (swReg?.showNotification) swReg.showNotification('Planning Web', body); else new Notification('Planning Web', body);
+            // Use OneSignal to request permission so it registers the device immediately
+            if (window.OneSignalDeferred) {
+                window.OneSignalDeferred.push(async (OneSignal) => {
+                    await OneSignal.Notifications.requestPermission();
+                    updatePermStates();
+                });
+            } else {
+                // Fallback (unlikely)
+                await Notification.requestPermission();
+                updatePermStates();
             }
         } catch { }
     });

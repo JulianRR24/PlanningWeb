@@ -6,7 +6,7 @@ import { uid } from "./ui.js";
 // The user said: "Asume que las siguientes variables de entorno YA están configuradas en Supabase" for the backend.
 // For frontend, we need the App ID. 
 // I will use a placeholder and strictly document it.
-const ONESIGNAL_APP_ID = "YOUR-ONESIGNAL-APP-ID"; 
+const ONESIGNAL_APP_ID = "2d86bc3b-c723-4b2a-a414-7724e0018c27"; 
 
 export const initOneSignal = async () => {
     try {
