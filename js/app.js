@@ -411,7 +411,6 @@ const wireSettings = async () => {
     on(saveSettings, "click", async () => {
         const v1 = Number(nsEl?.value || 10);
         const v2 = Number(neEl?.value || 5);
-        console.log(`💾 Guardando configuración: Inicio=${v1}, Fin=${v2}`);
         await setItem("notifyBeforeStart", Math.max(0, v1), true);
         await setItem("notifyBeforeEnd", Math.max(0, v2), true);
         if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); }

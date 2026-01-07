@@ -34,7 +34,7 @@ export const initOneSignal = async () => {
                 },
                 allowLocalhostAsSecureOrigin: true,
             }).then(() => {
-                console.log("✅ OneSignal Init Success");
+                // Init Success
             }).catch(err => {
                 console.error("❌ OneSignal Init Failed:", err);
             });
