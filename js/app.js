@@ -17,18 +17,17 @@ const ensureBootstrapData = async () => {
     const widgets = await getItem("widgets");
     const activeRoutineId = await getItem("activeRoutineId");
 
-    // Solo inicializar si NO existen datos en BD ni localmente (null/undefined)
     if (routines === null || routines === undefined) {
         console.log('🔧 Inicializando routines vacío (no existe en BD ni local)');
-        setItem("routines", [], false); // No sincronizar automáticamente
+        setItem("routines", [], false); 
     }
     if (widgets === null || widgets === undefined) {
         console.log('🔧 Inicializando widgets vacío (no existe en BD ni local)');
-        setItem("widgets", [], false); // No sincronizar automáticamente
+        setItem("widgets", [], false); 
     }
     if (activeRoutineId === null || activeRoutineId === undefined) {
         console.log('🔧 Inicializando activeRoutineId vacío (no existe en BD ni local)');
-        setItem("activeRoutineId", "", false); // No sincronizar automáticamente
+        setItem("activeRoutineId", "", false); 
     }
 };
 

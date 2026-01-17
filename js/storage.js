@@ -1,6 +1,5 @@
 import { supabase } from "./supabase.js";
 
-// Función para forzar sincronización completa con validación
 export const forceSync = async () => {
     try {
         console.log('🔄 Iniciando sincronización forzada...');
@@ -15,20 +14,17 @@ export const forceSync = async () => {
                 const remoteData = await fetchRemote(fullKey);
                 const localData = getLocal(fullKey);
                 
-                // Validar datos remotos antes de sobrescribir
                 if (remoteData !== null && isValidData(remoteData, k)) {
                     putLocal(fullKey, remoteData);
                     syncCount++;
                     console.log(`✅ Sincronizado: ${k}`);
                 } else if (remoteData === null && localData !== null) {
-                    // Si no hay datos remotos pero sí locales, subirlos
                     await upsertRemote(fullKey, localData);
                     syncCount++;
                     console.log(`📤 Subido a remoto: ${k}`);
                 }
             } catch (keyError) {
                 console.error(`❌ Error sincronizando ${k}:`, keyError);
-                // Continuar con otras claves
             }
         }
         
@@ -40,31 +36,26 @@ export const forceSync = async () => {
     }
 };
 
-// Validar integridad de datos
 const isValidData = (data, key) => {
     console.log('🔍 isValidData llamado:', { data, type: typeof data, key });
     
     if (data === null || data === undefined) return false;
     
-    // activeRoutineId debe ser string o vacío (validar ANTES de JSON)
     if (key === 'activeRoutineId') {
         console.log('🔍 Validando activeRoutineId:', { data, type: typeof data, key });
         
-        // Si es string, validar directamente
         if (typeof data === 'string') {
             const isValid = data === '' || data.trim().length > 0;
             console.log('🔍 Resultado validación (string):', { data, isValid });
             return isValid;
         }
         
-        // Si no es string, convertir y validar
         const parsed = String(data);
         const isValid = parsed === '' || parsed.trim().length > 0;
         console.log('🔍 Resultado validación (convertido):', { parsed, isValid });
         return isValid;
     }
     
-    // lastVisit debe ser un día de la semana válido o vacío (validar ANTES de JSON)
     if (key === 'lastVisit') {
         const validDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
         const isValid = validDays.includes(data) || data === '';
@@ -72,7 +63,6 @@ const isValidData = (data, key) => {
         return isValid;
     }
     
-    // Validar JSON (solo para otras claves)
     if (typeof data === 'string') {
         try {
             JSON.parse(data);
@@ -81,7 +71,6 @@ const isValidData = (data, key) => {
         }
     }
     
-    // Validar según tipo de clave
     if (key === 'routines' || key === 'widgets') {
         try {
             const parsed = typeof data === 'string' ? JSON.parse(data) : data;
@@ -91,14 +80,11 @@ const isValidData = (data, key) => {
         }
     }
     
-    // Para otras claves, si es un string, validar que no sea JSON corrupto
     if (typeof data === 'string') {
         try {
             JSON.parse(data);
-            // Si es JSON válido, aceptarlo
             return true;
         } catch {
-            // Si no es JSON, pero es un string simple, aceptarlo
             return true;
         }
     }
@@ -113,7 +99,6 @@ const keyPrefix = (k) => NS + k;
 const parseJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
 const toJson = (v) => { try { return JSON.stringify(v); } catch { return null; } };
 
-// Función de backup local
 const createBackup = (key, value) => {
     try {
         const backupKey = BACKUP_PREFIX + key;
@@ -126,14 +111,13 @@ const createBackup = (key, value) => {
     }
 };
 
-// Función de restauración desde backup
 const restoreFromBackup = (key) => {
     try {
         const backupKey = BACKUP_PREFIX + key;
         const backup = localStorage.getItem(backupKey);
         if (backup) {
             const { timestamp, data } = JSON.parse(backup);
-            const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 días
+            const maxAge = 7 * 24 * 60 * 60 * 1000;
             
             if (Date.now() - timestamp < maxAge) {
                 console.log(`🔄 Restaurando ${key} desde backup`);
@@ -152,7 +136,6 @@ const putLocal = (k, v) => {
     try { 
         const j = toJson(v); 
         if (j != null) {
-            // Crear backup antes de sobrescribir
             const current = localStorage.getItem(k);
             if (current) {
                 createBackup(k, parseJson(current));
@@ -173,7 +156,6 @@ const getLocal = (k) => {
         return r == null ? null : parseJson(r); 
     } catch (error) { 
         console.error('❌ Error en getLocal:', error);
-        // Intentar restaurar desde backup
         const backup = restoreFromBackup(k);
         if (backup !== null) {
             localStorage.setItem(k, toJson(backup));
@@ -186,7 +168,6 @@ const getLocal = (k) => {
 const removeLocal = (k) => { 
     try { 
         localStorage.removeItem(k); 
-        // Limpiar backup
         localStorage.removeItem(BACKUP_PREFIX + k);
         return true; 
     } catch (error) { 
@@ -243,14 +224,11 @@ const fetchRemote = async (k) => {
             return null;
         }
         
-        // Validar JSON antes de retornar
         try {
-            // Si ya es JSONB (viene de Supabase), retornar directamente
             if (data.planning_web_kv_value && typeof data.planning_web_kv_value === 'object') {
                 return data.planning_web_kv_value;
             }
             
-            // Para lastVisit: si es un día de la semana, devolver directamente sin parsear
             if (k === 'planningweb:lastVisit') {
                 const validDays = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
                 if (validDays.includes(data.planning_web_kv_value)) {
@@ -259,55 +237,45 @@ const fetchRemote = async (k) => {
                 }
             }
             
-            // Si es string, intentar parsear
             const parsed = JSON.parse(data.planning_web_kv_value);
             return parsed;
         } catch (parseError) {
             console.error(`❌ JSON corrupto en clave ${k}:`, parseError);
             console.log('🔧 Valor corrupto:', data.planning_web_kv_value, 'Tipo:', typeof data.planning_web_kv_value);
             
-            // Si es un objeto que vino de Supabase, retornarlo directamente
             if (typeof data.planning_web_kv_value === 'object' && data.planning_web_kv_value !== null) {
                 console.log('🔧 Retornando objeto JSONB directamente:', data.planning_web_kv_value);
                 return data.planning_web_kv_value;
             }
             
-            // Intentar limpiar datos corruptos comunes
-            // Para lastVisit: si es un día de la semana, devolver directamente
             if (data.planning_web_kv_value === '"sat"' || data.planning_web_kv_value === '"sun"' || data.planning_web_kv_value === '"mon"' || data.planning_web_kv_value === '"tue"' || data.planning_web_kv_value === '"wed"' || data.planning_web_kv_value === '"thu"' || data.planning_web_kv_value === '"fri"') {
                 console.log('🔧 Corrigiendo día de semana:', data.planning_web_kv_value);
                 return JSON.parse(data.planning_web_kv_value); // Parsear el string JSON para obtener el día
             }
             
-            // Para días sin comillas (caso raro)
             if (data.planning_web_kv_value === 'sat' || data.planning_web_kv_value === 'sun' || data.planning_web_kv_value === 'mon' || data.planning_web_kv_value === 'tue' || data.planning_web_kv_value === 'wed' || data.planning_web_kv_value === 'thu' || data.planning_web_kv_value === 'fri') {
                 console.log('🔧 Corrigiendo día de semana sin comillas:', data.planning_web_kv_value);
                 return data.planning_web_kv_value; // Devolver el string directamente
             }
             
-            // Para arrays/objetos vacíos, intentar parsear
             if (data.planning_web_kv_value === '[]' || data.planning_web_kv_value === '{}') {
                 console.log('🔧 Corrigiendo array/object vacío:', data.planning_web_kv_value);
                 return JSON.parse(data.planning_web_kv_value); // Parsear correctamente
             }
             
-            // Para arrays/objetos vacíos con formato JSON correcto
             if (data.planning_web_kv_value === '"[]"' || data.planning_web_kv_value === '"{}"') {
                 console.log('🔧 Corrigiendo array/object vacío con comillas:', data.planning_web_kv_value);
                 return JSON.parse(data.planning_web_kv_value); // Parsear el string JSON
             }
             
-            // Corregir datos notificados que se guardaron como [object Object]
             if (data.planning_web_kv_value === '[object Object]') {
                 console.log('🔧 Corrigiendo [object Object]:', data.planning_web_kv_value);
-                return {}; // Devolver objeto vacío
+                return {};
             }
             
-            // Corregir objetos que se guardaron como string sin comillas
             if (typeof data.planning_web_kv_value === 'string' && data.planning_web_kv_value.startsWith('{') && data.planning_web_kv_value.includes('true') && !data.planning_web_kv_value.includes('"')) {
                 console.log('🔧 Corrigiendo objeto sin comillas:', data.planning_web_kv_value);
                 try {
-                    // Agregar comillas a las claves
                     const fixed = data.planning_web_kv_value.replace(/(\w+):/g, '"$1":');
                     return JSON.parse(fixed);
                 } catch {
@@ -316,14 +284,11 @@ const fetchRemote = async (k) => {
                 }
             }
             
-            // Corregir strings que parecen objetos pero están mal formados
             if (typeof data.planning_web_kv_value === 'string' && data.planning_web_kv_value.includes('{') && data.planning_web_kv_value.includes('}')) {
                 console.log('🔧 Intentando corregir objeto mal formado:', data.planning_web_kv_value);
                 try {
-                    // Intentar parsear directamente
                     return JSON.parse(data.planning_web_kv_value);
                 } catch {
-                    // Si falla, devolver objeto vacío
                     console.log('🔧 No se pudo corregir, devolviendo objeto vacío');
                     return {};
                 }
@@ -355,7 +320,6 @@ const listRemoteKeys = async () => {
     } 
 };
 
-// Versión corregida: BD como fuente de verdad - siempre carga desde BD
 export const syncFromRemote = async (force = false) => {
     try {
         console.log('🔄 Cargando datos desde BD (fuente de verdad)...');
@@ -373,24 +337,19 @@ export const syncFromRemote = async (force = false) => {
                     continue;
                 }
                 
-                // Validar datos remotos
                 if (!isValidData(remoteData, k)) {
                     console.error(`❌ Datos remotos inválidos para: ${k}`);
                     errorCount++;
                     continue;
                 }
                 
-                // Verificar datos locales existentes
                 const localData = getLocal(full);
                 
-                // SIEMPRE preferir datos remotos (BD) sobre locales
-                // La BD es la fuente de verdad
                 if (localData === null || localData === undefined) {
                     console.log(`📥 Cargando desde BD (no hay datos locales): ${k}`);
                     putLocal(full, remoteData);
                     syncCount++;
                 } else if (force || JSON.stringify(localData) !== JSON.stringify(remoteData)) {
-                    // Si hay diferencia o se fuerza, actualizar con datos de BD
                     console.log(`🔄 Actualizando desde BD (datos diferentes): ${k}`);
                     putLocal(full, remoteData);
                     syncCount++;
@@ -414,11 +373,9 @@ export const syncFromRemote = async (force = false) => {
 export const getItem = async (key) => {
     const k = keyPrefix(key);
     
-    // Siempre intentar obtener desde BD primero (fuente de verdad)
     try {
         const remoteData = await fetchRemote(k);
         if (remoteData !== null && isValidData(remoteData, key)) {
-            // Actualizar caché local con datos de BD
             putLocal(k, remoteData);
             console.log(`📥 ${key}: cargado desde BD (fuente de verdad)`);
             return remoteData;
@@ -429,7 +386,6 @@ export const getItem = async (key) => {
         console.error(`❌ Error fetch remoto getItem(${key}):`, error);
     }
     
-    // Si no hay datos remotos válidos, usar caché local
     const cached = getLocal(k);
     if (cached !== null) {
         console.log(`💾 ${key}: usando caché local (no hay datos en BD)`);
@@ -445,7 +401,6 @@ export const setItem = (key, value, syncRemote = true) => {
     
     console.log('🔍 setItem llamado:', { key, k, value, type: typeof value, syncRemote });
     
-    // Validar valor antes de guardar
     if (!isValidData(value, key)) {
         console.error(`❌ Datos inválidos para setItem(${key}):`, value);
         return false;
@@ -453,9 +408,7 @@ export const setItem = (key, value, syncRemote = true) => {
     
     const ok = putLocal(k, value);
     
-    // Sincronización remota solo si se solicita explícitamente y no es array vacío no intencional
     if (syncRemote) {
-        // No sincronizar arrays vacíos si podrían sobreescribir datos válidos
         const isPotentiallyUnwantedEmpty = Array.isArray(value) && value.length === 0;
         if (isPotentiallyUnwantedEmpty) {
             console.log(`⚠️ Omitiendo sincronización automática de array vacío para: ${key}`);
@@ -464,7 +417,6 @@ export const setItem = (key, value, syncRemote = true) => {
         
         upsertRemote(k, value).catch(error => {
             console.error(`❌ Error sincronizando ${key}:`, error);
-            // Intentar una vez más después de 2 segundos
             setTimeout(() => {
                 upsertRemote(k, value).catch(retryError => {
                     console.error(`❌ Retry fallido para ${key}:`, retryError);
@@ -499,7 +451,6 @@ export const keys = () => {
     return out;
 };
 
-// Función para sincronización explícita (cuando el usuario lo desea)
 export const syncToRemote = async (key) => {
     try {
         const k = keyPrefix(key);
@@ -529,7 +480,6 @@ export const syncToRemote = async (key) => {
     }
 };
 
-// Función de diagnóstico
 export const diagnoseData = async () => {
     console.log('🔍 Iniciando diagnóstico de datos...');
     

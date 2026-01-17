@@ -6,7 +6,6 @@ const state = { editingId: "", buffer: null, editingEventId: "" };
 const initPage = async () => {
   await syncFromRemote();
   
-  // Inicializar buffer si no existe
   if (!state.buffer) {
     state.buffer = emptyRoutine();
   }
@@ -50,7 +49,6 @@ const addEventToBuffer = () => {
   const color = qs("#eventColor").value || "#c7d2fe";
   if (!title) return;
   
-  // Asegurar que siempre hay un buffer válido
   const buf = state.buffer || emptyRoutine();
   
   if (state.editingEventId) {
@@ -139,7 +137,6 @@ const saveRoutine = async () => {
     }
   }
   
-  // Sincronizar explícitamente con BD
   syncToRemote("routines").then(success => {
     if (success) {
       console.log('✅ Rutinas sincronizadas con BD');
@@ -224,7 +221,6 @@ const duplicateRoutine = async (id) => {
   const copy = { ...JSON.parse(JSON.stringify(r)), id: uid("r_"), name: r.name + " (copia)" };
   setItem("routines", [...list, copy]);
   
-  // Sincronizar explícitamente con BD
   syncToRemote("routines").then(success => {
     if (success) {
       console.log('✅ Rutinas sincronizadas con BD (duplicar)');
@@ -243,7 +239,6 @@ const deleteRoutine = async (id) => {
   if (await getItem("activeRoutineId") === id) setItem("activeRoutineId", "");
   if (state.editingId === id) { state.editingId = ""; state.buffer = null; qs("#routineName").value = ""; qs("#dayEvents").innerHTML = ""; }
   
-  // Sincronizar explícitamente con BD
   syncToRemote("routines").then(success => {
     if (success) {
       console.log('✅ Rutinas sincronizadas con BD (eliminar)');
@@ -256,7 +251,6 @@ const deleteRoutine = async (id) => {
 };
 
 const wireEditor = async () => {
-  // Prevenir envío del formulario
   const form = qs("#routineForm");
   if (form) {
     on(form, "submit", (e) => {
@@ -312,7 +306,6 @@ const importJSON = async (e) => {
     if (Array.isArray(data.routines)) setItem("routines", data.routines);
     if (typeof data.activeRoutineId === "string") setItem("activeRoutineId", data.activeRoutineId);
     
-    // Sincronizar explícitamente con BD
     await Promise.all([
       syncToRemote("routines"),
       syncToRemote("activeRoutineId")

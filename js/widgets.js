@@ -2,12 +2,11 @@ import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
 import { qs, on, uid } from "./ui.js";
 
 const initPage = async () => {
-    await syncFromRemote();  // Aseguramos que los datos estén sincronizados
+    await syncFromRemote(); 
     await wireSettings();
     on(qs("#saveWidget"), "click", async () => saveWidget());
     on(qs("#deleteWidgetBtn"), "click", async () => clearWidgets());
     
-    // Prevenir recarga del formulario
     const form = qs("#widgetForm");
     if (form) {
         on(form, "submit", (e) => {
@@ -16,7 +15,6 @@ const initPage = async () => {
         });
     }
     
-    // Renderizar lista inicial
     await renderList();
 };
 
@@ -68,7 +66,6 @@ const saveWidget = async () => {
     }
     setItem("widgets", list);
     
-    // Sincronizar explícitamente con BD
     syncToRemote("widgets").then(success => {
         if (success) {
             console.log('✅ Widgets sincronizados con BD');

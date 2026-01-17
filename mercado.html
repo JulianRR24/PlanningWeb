@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.init({
-        appId: "2d86bc3b-c723-4b2a-a414-7724e0018c27",
-        safari_web_id: "web.onesignal.auto.147da6f8-95e8-4f3e-9e77-8dc52e1c58f0",
-        notifyButton: {
-            enable: true,
-        },
-        });
-    });
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Lista de Mercado</title>
@@ -27,7 +14,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="./assets/icons/icon-192.png">
     <link rel="stylesheet" href="./css/style.css">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+        appId: "2d86bc3b-c723-4b2a-a414-7724e0018c27",
+        safari_web_id: "web.onesignal.auto.147da6f8-95e8-4f3e-9e77-8dc52e1c58f0",
+        notifyButton: {
+            enable: true,
+        },
+        });
+    });
+    </script>
 </head>
+
 <body class="bg-gray-100 text-gray-800">
     <div class="relative min-h-screen flex flex-col md:max-w-none">
         <main class="flex-1 overflow-y-auto p-4 md:p-6 pb-20">
