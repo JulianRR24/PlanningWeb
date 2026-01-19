@@ -1,8 +1,9 @@
 import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
-import { qs, on, uid } from "./ui.js";
+import { qs, on, uid, initTheme, toggleTheme, updateThemeLabel } from "./ui.js";
 
 const initPage = async () => {
     await syncFromRemote(); 
+    initTheme();
     await wireSettings();
     on(qs("#saveWidget"), "click", async () => saveWidget());
     on(qs("#deleteWidgetBtn"), "click", async () => clearWidgets());
@@ -28,10 +29,18 @@ const wireSettings = async () => {
     const ne = await getItem("notifyBeforeEnd") ?? 5;
     const nsEl = qs("#notifyBeforeStart");
     const neEl = qs("#notifyBeforeEnd");
+    const themeToggle = qs("#themeToggle");
     if (nsEl) nsEl.value = ns;
     if (neEl) neEl.value = ne;
-    on(settingsBtn, "click", () => { if (modal) { modal.classList.remove("hidden"); modal.classList.add("flex"); } });
+    on(settingsBtn, "click", () => { 
+        if (modal) { 
+            modal.classList.remove("hidden"); 
+            modal.classList.add("flex"); 
+            updateThemeLabel();
+        } 
+    });
     on(closeBtn, "click", () => { if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); } });
+    on(themeToggle, "click", toggleTheme);
     on(saveSettings, "click", () => {
         const v1 = Number(nsEl?.value || 10);
         const v2 = Number(neEl?.value || 5);

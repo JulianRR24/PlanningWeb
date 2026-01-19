@@ -1,5 +1,5 @@
 import { getItem, setItem, syncFromRemote } from "./storage.js";
-import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop } from "./ui.js";
+import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop, initTheme, toggleTheme, updateThemeLabel } from "./ui.js";
 import { initOneSignal } from "./push.js";
 
 let swReg = null;
@@ -360,6 +360,7 @@ const initHome = async () => {
     try {
         // 1️⃣ Cargar interfaz inmediatamente con datos desde BD (fuente de verdad)
         await ensureBootstrapData();
+        initTheme();
         await wireSettings();
         registerServiceWorker();
         initOneSignal(); // Initialize OneSignal
@@ -392,6 +393,7 @@ const initHome = async () => {
 document.addEventListener("DOMContentLoaded", initHome);
 
 
+
 const wireSettings = async () => {
     const settingsBtn = qs("#settingsBtn");
     const modal = qs("#settingsModal");
@@ -399,14 +401,22 @@ const wireSettings = async () => {
     const saveSettings = qs("#saveSettings");
     const askNotifyPerm = qs("#askNotifyPerm");
     const askGeoPerm = qs("#askGeoPerm");
+    const themeToggle = qs("#themeToggle");
     const ns = await getItem("notifyBeforeStart") ?? 10;
     const ne = await getItem("notifyBeforeEnd") ?? 5;
     const nsEl = qs("#notifyBeforeStart");
     const neEl = qs("#notifyBeforeEnd");
     if (nsEl) nsEl.value = ns;
     if (neEl) neEl.value = ne;
-    on(settingsBtn, "click", () => { if (modal) { modal.classList.remove("hidden"); modal.classList.add("flex"); } });
+    on(settingsBtn, "click", () => { 
+        if (modal) { 
+            modal.classList.remove("hidden"); 
+            modal.classList.add("flex"); 
+            updateThemeLabel(); // Ensure label is correct when opening
+        } 
+    });
     on(closeBtn, "click", () => { if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); } });
+    on(themeToggle, "click", toggleTheme);
     on(saveSettings, "click", async () => {
         const v1 = Number(nsEl?.value || 10);
         const v2 = Number(neEl?.value || 5);

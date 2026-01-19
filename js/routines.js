@@ -1,5 +1,5 @@
 import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
-import { qs, qsa, on, uid, days, dayName } from "./ui.js";
+import { qs, qsa, on, uid, days, dayName, initTheme, toggleTheme, updateThemeLabel } from "./ui.js";
 
 const state = { editingId: "", buffer: null, editingEventId: "" };
 
@@ -11,6 +11,7 @@ const initPage = async () => {
   }
   
   mountDaySelect();
+  initTheme();
   await renderRoutines();
   await wireEditor();
 };
@@ -272,10 +273,21 @@ const wireEditor = async () => {
   const askNotifyPerm = qs("#askNotifyPerm");
   const ns = await getItem("notifyBeforeStart") ?? 10;
   const ne = await getItem("notifyBeforeEnd") ?? 5;
-  if (qs("#notifyBeforeStart")) qs("#notifyBeforeStart").value = ns;
-  if (qs("#notifyBeforeEnd")) qs("#notifyBeforeEnd").value = ne;
-  on(settingsBtn, "click", () => { if (modal) { modal.classList.remove("hidden"); modal.classList.add("flex"); } });
+  const nEl = qs("#notifyBeforeStart");
+  const neEl = qs("#notifyBeforeEnd");
+  const themeToggle = qs("#themeToggle");
+  // ns and ne already declared above
+  if (nEl) nEl.value = ns;
+  if (neEl) neEl.value = ne;
+  on(settingsBtn, "click", () => { 
+    if (modal) { 
+        modal.classList.remove("hidden"); 
+        modal.classList.add("flex"); 
+        updateThemeLabel();
+    } 
+  });
   on(closeBtn, "click", () => { if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); } });
+  on(themeToggle, "click", toggleTheme);
   on(saveSettings, "click", () => {
     const v1 = Number(qs("#notifyBeforeStart").value || 10);
     const v2 = Number(qs("#notifyBeforeEnd").value || 5);

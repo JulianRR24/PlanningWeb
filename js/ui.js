@@ -20,3 +20,33 @@ export const hhmmToMinutes = (hhmm) => {
     return h * 60 + m;
 };
 export const minutesToTop = (min) => Math.round(min * (1536 / 1440));
+
+export const updateThemeLabel = () => {
+    const btn = qs("#themeToggle");
+    if (!btn) return;
+    const isDark = document.documentElement.classList.contains("dark");
+    btn.textContent = isDark ? "Cambiar a Claro ☀️" : "Cambiar a Oscuro 🌙";
+};
+
+export const initTheme = () => {
+    const stored = localStorage.getItem("theme");
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (stored === "dark" || (!stored && systemDark)) {
+        document.documentElement.classList.add("dark");
+    } else {
+        document.documentElement.classList.remove("dark");
+    }
+    updateThemeLabel();
+};
+
+export const toggleTheme = () => {
+    const isDark = document.documentElement.classList.contains("dark");
+    if (isDark) {
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+    } else {
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("theme", "dark");
+    }
+    updateThemeLabel();
+};
