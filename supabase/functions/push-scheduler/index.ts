@@ -24,13 +24,7 @@ serve(async (req: Request) => {
     const { data: kvData, error: kvError } = await supabaseClient
       .from('planning_web_key_value_store')
       .select('planning_web_kv_key, planning_web_kv_value')
-      .in('planning_web_kv_key', [
-          'planningweb:activeRoutineId', 
-          'planningweb:routines',
-          'planningweb:notifyBeforeStart',
-          'planningweb:notifyBeforeEnd'
-      ])
-      .or('planning_web_kv_key.like.planningweb:device:%')
+      .or('planning_web_kv_key.in.("planningweb:activeRoutineId","planningweb:routines","planningweb:notifyBeforeStart","planningweb:notifyBeforeEnd"),planning_web_kv_key.like.planningweb:device:%')
 
     if (kvError) throw kvError
 
