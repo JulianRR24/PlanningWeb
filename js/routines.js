@@ -4,8 +4,7 @@ import { qs, qsa, on, uid, days, dayName, initTheme, toggleTheme, updateThemeLab
 const state = { editingId: "", buffer: null, editingEventId: "" };
 
 const initPage = async () => {
-  await syncFromRemote();
-  
+  // 1. Render immediately with local data
   if (!state.buffer) {
     state.buffer = emptyRoutine();
   }
@@ -14,6 +13,15 @@ const initPage = async () => {
   initTheme();
   await renderRoutines();
   await wireEditor();
+
+  // 2. Sync in background (non-blocking)
+  requestIdleCallback(async () => {
+    const ok = await syncFromRemote();
+    if (ok) {
+        console.log('🔄 Datos actualizados en segundo plano');
+        await renderRoutines();
+    }
+  });
 };
 
 const emptyRoutine = () => ({ id: uid("r_"), name: "", days: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] } });

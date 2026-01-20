@@ -2,7 +2,7 @@ import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
 import { qs, on, uid, initTheme, toggleTheme, updateThemeLabel } from "./ui.js";
 
 const initPage = async () => {
-    await syncFromRemote(); 
+    // 1. Render immediately
     initTheme();
     await wireSettings();
     on(qs("#saveWidget"), "click", async () => saveWidget());
@@ -17,6 +17,15 @@ const initPage = async () => {
     }
     
     await renderList();
+
+    // 2. Sync in background
+    requestIdleCallback(async () => {
+        const ok = await syncFromRemote();
+        if (ok) {
+            console.log('🔄 Widgets actualizados en segundo plano');
+            await renderList();
+        }
+    });
 };
 
 const wireSettings = async () => {
