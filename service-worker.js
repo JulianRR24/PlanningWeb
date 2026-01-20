@@ -4,7 +4,7 @@ try {
     console.warn('⚠️ OneSignal SW blocked (AdBlock?):', e);
 }
 
-const CACHE_NAME = 'planning-hub-v1';
+const CACHE_NAME = 'planning-hub-v2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
