@@ -1,5 +1,5 @@
 import { getItem, setItem, syncFromRemote } from "./storage.js";
-import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop, initTheme, toggleTheme, updateThemeLabel } from "./ui.js";
+import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 import { initOneSignal } from "./push.js";
 
 let swReg = null;
@@ -361,6 +361,7 @@ const initHome = async () => {
         // 1️⃣ Cargar interfaz inmediatamente con datos desde BD (fuente de verdad)
         await ensureBootstrapData();
         initTheme();
+        initSyncIndicator(); // New
         await wireSettings();
         registerServiceWorker();
         initOneSignal(); // Initialize OneSignal
@@ -375,14 +376,17 @@ const initHome = async () => {
 
         // 2️⃣ Sincronizar con Supabase en segundo plano (sin bloquear)
         requestIdleCallback(async () => {
+            setSyncStatus("syncing");
             const ok = await syncFromRemote(false);
             if (ok) {
                 console.log("✅ Datos sincronizados con Supabase (en segundo plano)");
                 // Re-render si hubo cambios nuevos desde BD
                 await renderWidgetsOnHome();
                 await activeRoutineSelector();
+                setSyncStatus("success");
             } else {
                 console.warn("⚠️ Falló la sincronización (offline mode)");
+                setSyncStatus("error");
             }
         });
     } catch (error) {

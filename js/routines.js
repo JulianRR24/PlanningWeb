@@ -1,5 +1,5 @@
 import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
-import { qs, qsa, on, uid, days, dayName, initTheme, toggleTheme, updateThemeLabel } from "./ui.js";
+import { qs, qsa, on, uid, days, dayName, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 
 const state = { editingId: "", buffer: null, editingEventId: "" };
 
@@ -11,15 +11,20 @@ const initPage = async () => {
   
   mountDaySelect();
   initTheme();
+  initSyncIndicator(); // New
   await renderRoutines();
   await wireEditor();
 
   // 2. Sync in background (non-blocking)
   requestIdleCallback(async () => {
+    setSyncStatus("syncing");
     const ok = await syncFromRemote();
     if (ok) {
         console.log('🔄 Datos actualizados en segundo plano');
         await renderRoutines();
+        setSyncStatus("success");
+    } else {
+        setSyncStatus("error");
     }
   });
 };
