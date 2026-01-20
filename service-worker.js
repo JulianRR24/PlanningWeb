@@ -19,7 +19,7 @@ const ASSETS_TO_CACHE = [
     './js/ui.js',
     './js/supabase.js',
     './manifest.json',
-    'https://cdn.tailwindcss.com',
+    // 'https://cdn.tailwindcss.com', // Removed to avoid CORS errors
     'https://unpkg.com/aos@2.3.4/dist/aos.css',
     'https://unpkg.com/aos@2.3.4/dist/aos.js'
 ];

@@ -37,30 +37,22 @@ export const forceSync = async () => {
 };
 
 const isValidData = (data, key) => {
-    console.log('🔍 isValidData llamado:', { data, type: typeof data, key });
+    // console.log('🔍 isValidData llamado:', { data, type: typeof data, key }); // Performance optimization: Removed verbose log
     
     if (data === null || data === undefined) return false;
     
     if (key === 'activeRoutineId') {
-        console.log('🔍 Validando activeRoutineId:', { data, type: typeof data, key });
-        
         if (typeof data === 'string') {
-            const isValid = data === '' || data.trim().length > 0;
-            console.log('🔍 Resultado validación (string):', { data, isValid });
-            return isValid;
+            return true; // Any string is technically valid for ID (empty string means none)
         }
         
         const parsed = String(data);
-        const isValid = parsed === '' || parsed.trim().length > 0;
-        console.log('🔍 Resultado validación (convertido):', { parsed, isValid });
-        return isValid;
+        return true;
     }
     
     if (key === 'lastVisit') {
         const validDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-        const isValid = validDays.includes(data) || data === '';
-        console.log('🔍 Validando lastVisit:', { data, isValid, validDays });
-        return isValid;
+        return validDays.includes(data) || data === '';
     }
     
     if (typeof data === 'string') {
@@ -354,7 +346,7 @@ export const syncFromRemote = async (force = false) => {
                     putLocal(full, remoteData);
                     syncCount++;
                 } else {
-                    console.log(`✅ Datos locales ya actualizados: ${k}`);
+                    // console.log(`✅ Datos locales ya actualizados: ${k}`); // Verbose log removed
                 }
             } catch (keyError) {
                 console.error(`❌ Error procesando ${k}:`, keyError);
@@ -399,7 +391,7 @@ export const getItem = async (key) => {
 export const setItem = (key, value, syncRemote = true) => {
     const k = keyPrefix(key);
     
-    console.log('🔍 setItem llamado:', { key, k, value, type: typeof value, syncRemote });
+    // console.log('🔍 setItem llamado:', { key, k, value, type: typeof value, syncRemote });
     
     if (!isValidData(value, key)) {
         console.error(`❌ Datos inválidos para setItem(${key}):`, value);
