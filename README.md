@@ -4,6 +4,13 @@
 
 Plataforma web integral para gestión de rutinas, tareas y widgets personalizables con soporte para temas claro/oscuro. Diseñada para ofrecer una experiencia de usuario fluida y personalizable para la organización personal y profesional con sincronización en tiempo real entre dispositivos.
 
+## Notas importantes para desarrolladores
+Comando para que tailwind escuche cambios en archivos css: 
+
+```bash
+npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch
+```
+
 ## 🚀 Características Principales
 
 🔗 **Acceso rápido**: [Ver aplicación en vivo](https://web-planning-hub.vercel.app/index.html)
