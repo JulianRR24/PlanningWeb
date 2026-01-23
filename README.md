@@ -20,7 +20,7 @@ npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch
 - **Acceso Rápido**: Botón dedicado para mantener supervisión del clima en el Valle de Aburrá.
 - **Modo Pantalla Completa**: Opción para abrir el portal en ventana externa para mayor detalle.
 
-![Vista Previa SIATA](<img width="496" height="831" alt="image" src="https://github.com/user-attachments/assets/f1600d65-a2d3-4346-99aa-e4ba90762296" />)
+<img width="496" height="831" alt="image" src="https://github.com/user-attachments/assets/f1600d65-a2d3-4346-99aa-e4ba90762296" />
 <!-- TODO: Agregar captura de pantalla de la vista SIATA aquí -->
 
 ### 🔔 Sistema de Notificaciones Inteligentes
@@ -31,7 +31,7 @@ npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch
 - **Gestión de Permisos**: Interfaz amigable para solicitar y gestionar permisos de notificaciones y ubicación.
 - **Soporte Offline**: Service Workers configurados para manejar notificaciones incluso con la app en segundo plano.
 
-![Configuración de Notificaciones](assets/screenshots/notifications-settings.png)
+<img width="567" height="1280" alt="image" src="https://github.com/user-attachments/assets/00f977c2-0c34-4c81-bcd7-5963a8c5304f" />
 <!-- TODO: Agregar captura de pantalla de configuración de notificaciones -->
 
 ### 🔄 Motor de Sincronización "Source of Truth"
