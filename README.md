@@ -15,10 +15,39 @@ npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch
 
 🔗 **Acceso rápido**: [Ver aplicación en vivo](https://web-planning-hub.vercel.app/index.html)
 
-- **Gestión de Rutinas**
+### 🗺️ SIATA Weather & Radar
+- **Geoportal Embebido**: Visualización directa del radar meteorológico del SIATA dentro de la aplicación.
+- **Acceso Rápido**: Botón dedicado para mantener supervisión del clima en el Valle de Aburrá.
+- **Modo Pantalla Completa**: Opción para abrir el portal en ventana externa para mayor detalle.
+
+![Vista Previa SIATA](assets/screenshots/siata-preview.png)
+<!-- TODO: Agregar captura de pantalla de la vista SIATA aquí -->
+
+### 🔔 Sistema de Notificaciones Inteligentes
+- **Integración OneSignal**: Sistema robusto de notificaciones push.
+- **Alertas de Rutina**: 
+  - Avisos configurables antes de iniciar una tarea (por defecto 10 min).
+  - Avisos antes de finalizar una tarea (por defecto 5 min).
+- **Gestión de Permisos**: Interfaz amigable para solicitar y gestionar permisos de notificaciones y ubicación.
+- **Soporte Offline**: Service Workers configurados para manejar notificaciones incluso con la app en segundo plano.
+
+![Configuración de Notificaciones](assets/screenshots/notifications-settings.png)
+<!-- TODO: Agregar captura de pantalla de configuración de notificaciones -->
+
+### 🔄 Motor de Sincronización "Source of Truth"
+La aplicación implementa un sistema de sincronización híbrido robusto:
+- **Prioridad Base de Datos**: Supabase actúa como la fuente de verdad. Al iniciar, la app siempre intenta hidratarse con los datos más recientes del servidor.
+- **Resiliencia Offline**: 
+  - Si no hay internet, la app funciona con `localStorage`.
+  - Los cambios se guardan localmente y se intentan sincronizar en segundo plano cuando la conexión regresa.
+- **Backup Automático**: Sistema de copias de seguridad locales `backup:` para prevenir pérdida de datos corruptos.
+- **Diagnóstico**: Herramienta interna para comparar estado local vs remoto.
+
+### 📊 Gestión de Rutinas y Widgets
+- **Rutinas Dinámicas**:
   - Crea y gestiona múltiples rutinas diarias
-  - Horarios personalizables con colores
-  - Vista de agenda diaria con indicador de hora actual
+  - Horarios personalizables con codificación de colores
+  - Vista de agenda diaria con indicador de hora actual "Time Needle"
 
 - **Widgets Personalizables**
   - **Mercado**: Sigue los indicadores financieros en tiempo real
@@ -46,22 +75,26 @@ npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch
   - Estructura de datos optimizada
   - Sincronización automática entre dispositivos
 
-## 🔄 Sincronización con Supabase
+## 🔄 Arquitectura de Datos
 
-La aplicación utiliza Supabase como backend para la sincronización en tiempo real de datos entre dispositivos. Los datos se almacenan en una tabla `kv` con el siguiente esquema:
+La aplicación utiliza un modelo **Key-Value** sobre PostgreSQL en Supabase, lo que permite una flexibilidad total en los esquemas de datos sin migraciones complejas.
 
+### Esquema de Base de Datos
 ```sql
 CREATE TABLE kv (
-  key TEXT PRIMARY KEY,
-  value JSONB NOT NULL
+  key TEXT PRIMARY KEY,   -- Claves como: planningweb:routines, planningweb:widgets
+  value JSONB NOT NULL    -- Los datos se guardan como JSONPuros
 );
 
--- Políticas de seguridad para acceso anónimo
+-- Row Level Security (RLS) habilitado para seguridad
 ALTER TABLE kv ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Acceso completo para anónimos" ON public.kv
-  FOR ALL USING (true);
 ```
+
+### Flujo de Sincronización
+1. **Inicio**: `ensureBootstrapData()` verifica datos críticos.
+2. **Carga**: `syncFromRemote()` descarga datos desde Supabase.
+3. **Escritura**: `setItem()` escribe en LocalStorage y dispara `upsertRemote()` asíncronamente (Optimistic updates).
+4. **Verificación**: `activeRoutineSelector()` y otros componentes reaccionan a los cambios de datos.
 
 ## 📁 Estructura del Proyecto
 
@@ -135,9 +168,13 @@ Este proyecto está bajo la Licencia MIT. Consulta el archivo [LICENSE](LICENSE)
 
 ## ✨ Créditos
 
-- [Tailwind CSS](https://tailwindcss.com/)
-- [OpenWeatherMap](https://openweathermap.org/)
-- [Alpha Vantage](https://www.alphavantage.co/)
+- **Tailwind CSS v4**: Utilizamos la última versión con el CLI optimizado.
+- **Supabase JS**: Cliente ligero para interacciones DB.
+- **OneSignal SDK**: Para gestión de notificaciones push multiplataforma.
+- **Apis Externas**:
+  - OpenWeatherMap / MeteoSource (Clima)
+  - Alpha Vantage (Finanzas)
+  - SIATA Geoportal (Mapas locales)
 
 ---
 
