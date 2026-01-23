@@ -1,6 +1,6 @@
 import { qs, qsa, on } from './ui.js';
 import { signIn, signUp, signOut, deleteAccount, updatePassword } from './auth.js';
-import { syncFromRemote } from './storage.js';
+import { syncFromRemote, clearLocalData } from './storage.js';
 
 let isLoginMode = true;
 
@@ -75,6 +75,7 @@ const handleAuthSubmit = async (e) => {
 const handleLogout = async () => {
     try {
         if (confirm('¿Seguro que quieres cerrar sesión?')) {
+            clearLocalData(); // Clean up local storage to prevent data leakage
             await signOut();
             location.reload();
         }
