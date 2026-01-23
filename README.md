@@ -20,7 +20,7 @@ npx @tailwindcss/cli -i ./src/input.css -o ./dist/output.css --watch
 - **Acceso Rápido**: Botón dedicado para mantener supervisión del clima en el Valle de Aburrá.
 - **Modo Pantalla Completa**: Opción para abrir el portal en ventana externa para mayor detalle.
 
-![Vista Previa SIATA](assets/screenshots/siata-preview.png)
+![Vista Previa SIATA](<img width="496" height="831" alt="image" src="https://github.com/user-attachments/assets/f1600d65-a2d3-4346-99aa-e4ba90762296" />)
 <!-- TODO: Agregar captura de pantalla de la vista SIATA aquí -->
 
 ### 🔔 Sistema de Notificaciones Inteligentes
