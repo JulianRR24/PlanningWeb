@@ -1,4 +1,6 @@
 import { getItem, setItem, syncFromRemote } from "./storage.js";
+import { initAuth, onAuthChange } from "./auth.js";
+import { initAuthUI } from "./auth_ui.js";
 import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 import { initOneSignal } from "./push.js";
 
@@ -389,6 +391,18 @@ const initHome = async () => {
                 setSyncStatus("error");
             }
         });
+
+        // 3️⃣ Inicializar autenticación
+        await initAuth();
+        onAuthChange((user) => {
+            initAuthUI(user);
+            // Si el usuario cambia (login/logout), forzamos una recarga de datos
+            // Pero como authStateChange dispara al inicio también, debemos tener cuidado.
+            // Por ahora initAuthUI maneja el botón visual.
+            // La sincronización de datos ya se maneja en el listener interno de auth.js si quisiéramos,
+            // pero mejor dejamos que la recarga de página al login maneje todo limpio.
+        });
+
     } catch (error) {
         console.error("Error al inicializar:", error);
     }

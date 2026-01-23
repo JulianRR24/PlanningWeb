@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { authState } from "./auth.js";
 
 export const forceSync = async () => {
     try {
@@ -176,9 +177,19 @@ const upsertRemote = async (k, v) => {
             return false;
         }
         
+        const payload = { 
+            planning_web_kv_key: k, 
+            planning_web_kv_value: jsonValue
+        };
+        
+        // If logged in, attach user_id to ensure unique constraint (user_id, key) works
+        if (authState.user) {
+            payload.user_id = authState.user.id;
+        }
+
         const { error } = await supabase
             .from("planning_web_key_value_store")
-            .upsert({ planning_web_kv_key: k, planning_web_kv_value: jsonValue }, { onConflict: 'planning_web_kv_key' }); 
+            .upsert(payload, { onConflict: 'user_id, planning_web_kv_key' }); 
         if (error) {
             console.error('❌ Error en upsertRemote:', error);
             return false;
