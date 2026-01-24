@@ -228,8 +228,18 @@ const deleteRemote = async (k) => {
 
 const fetchRemote = async (k) => { 
     try { 
-        const { data, error } = await supabase.from("planning_web_key_value_store").select("planning_web_kv_value").eq("planning_web_kv_key", k).maybeSingle(); 
+        let query = supabase.from("planning_web_key_value_store").select("planning_web_kv_value").eq("planning_web_kv_key", k);
+        
+        // Prioritize user-specific data if logged in
+        if (authState.user) {
+            query = query.eq("user_id", authState.user.id);
+        }
+        
+        const { data, error } = await query.maybeSingle(); 
+        
         if (error) {
+            // Fallback: retry without user_id only if we didn't search specifically (or maybe strictly don't fallback to avoid pollution?)
+            // Actually, if we are logged in, we ONLY want our data.
             console.error('❌ Error en fetchRemote:', error);
             return null;
         }
@@ -318,7 +328,13 @@ const fetchRemote = async (k) => {
 
 const listRemoteKeys = async () => { 
     try { 
-        const { data, error } = await supabase.from("planning_web_key_value_store").select("planning_web_kv_key"); 
+        let query = supabase.from("planning_web_key_value_store").select("planning_web_kv_key");
+        
+        if (authState.user) {
+            query = query.eq("user_id", authState.user.id);
+        }
+        
+        const { data, error } = await query; 
         if (error) {
             console.error('❌ Error en listRemoteKeys:', error);
             return []; 
