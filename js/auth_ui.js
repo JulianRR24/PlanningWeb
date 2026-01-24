@@ -140,9 +140,17 @@ const handleUpdatePassword = async () => {
     }
 };
 
+
 export const initAuthUI = (user) => {
     const authBtn = qs('#authBtn');
     const accountEmail = qs('#accountEmail');
+    
+    // Safety check: if header isn't rendered yet, wait a bit
+    if (!authBtn) {
+        console.warn('⚠️ Header elements not found, retrying auth UI init in 100ms...');
+        setTimeout(() => initAuthUI(user), 100);
+        return;
+    }
     
     // Wire events
     on(qs('#authBtn'), 'click', () => {

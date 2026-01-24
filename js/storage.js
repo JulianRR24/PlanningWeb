@@ -169,7 +169,18 @@ const removeLocal = (k) => {
     } 
 };
 
-const upsertRemote = async (k, v) => { 
+
+export const clearLocalData = () => {
+    const localKeys = keys();
+    let count = 0;
+    for (const k of localKeys) {
+        removeLocal(keyPrefix(k));
+        count++;
+    }
+    console.log(`🧹 Datos locales limpiados: ${count} claves eliminadas`);
+};
+
+export const upsertRemote = async (k, v) => { 
     try { 
         const jsonValue = toJson(v);
         if (!jsonValue) {

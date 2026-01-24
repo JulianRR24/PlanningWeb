@@ -1,6 +1,7 @@
 import { getItem, setItem, syncFromRemote } from "./storage.js";
 import { initAuth, onAuthChange } from "./auth.js";
 import { initAuthUI } from "./auth_ui.js";
+import { renderHeader } from "./header.js";
 import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 import { initOneSignal } from "./push.js";
 
@@ -362,6 +363,7 @@ const initHome = async () => {
     try {
         // 1️⃣ Cargar interfaz inmediatamente con datos desde BD (fuente de verdad)
         await ensureBootstrapData();
+        renderHeader(); // ⬅️ Render header first
         initTheme();
         initSyncIndicator(); // New
         await wireSettings();

@@ -1,4 +1,8 @@
 import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
+
+import { renderHeader } from "./header.js";
+import { initAuth, onAuthChange } from "./auth.js";
+import { initAuthUI } from "./auth_ui.js";
 import { qs, qsa, on, uid, days, dayName, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 
 const state = { editingId: "", buffer: null, editingEventId: "" };
@@ -10,8 +14,14 @@ const initPage = async () => {
   }
   
   mountDaySelect();
+  renderHeader();
   initTheme();
   initSyncIndicator(); // New
+  
+  await initAuth();
+  onAuthChange((user) => {
+      initAuthUI(user);
+  });
   await renderRoutines();
   await wireEditor();
 

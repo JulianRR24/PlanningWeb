@@ -1,10 +1,19 @@
 import { getItem, setItem, syncFromRemote, syncToRemote } from "./storage.js";
+
+import { renderHeader } from "./header.js";
+import { initAuth, onAuthChange } from "./auth.js";
+import { initAuthUI } from "./auth_ui.js";
 import { qs, on, uid, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 
 const initPage = async () => {
     // 1. Render immediately
+    renderHeader();
     initTheme();
     initSyncIndicator(); // New
+    await initAuth();
+    onAuthChange((user) => {
+        initAuthUI(user);
+    });
     await wireSettings();
     on(qs("#saveWidget"), "click", async () => saveWidget());
     on(qs("#deleteWidgetBtn"), "click", async () => clearWidgets());
