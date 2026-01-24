@@ -3,6 +3,7 @@ import { signIn, signUp, signOut, deleteAccount, updatePassword } from './auth.j
 import { syncFromRemote, clearLocalData } from './storage.js';
 
 let isLoginMode = true;
+let uiWired = false;
 
 const toggleAuthMode = () => {
     isLoginMode = !isLoginMode;
@@ -73,7 +74,7 @@ const handleAuthSubmit = async (e) => {
 const handleLogout = async () => {
     try {
         if (confirm('¿Seguro que quieres cerrar sesión?')) {
-            clearLocalData(); // Clean up local storage to prevent data leakage
+            clearLocalData();
             await signOut();
             location.reload();
         }
@@ -150,40 +151,41 @@ export const initAuthUI = (user) => {
         return;
     }
     
-    // Wire events
-    on(qs('#authBtn'), 'click', () => {
-        if (user) {
-            showModal('#accountModal');
-        } else {
-            isLoginMode = true; // reset to login
-            toggleAuthMode(); // ensure text is correct
-            toggleAuthMode(); // double toggle to force reset? No, actually toggleAuthMode toggles checks current state
-            isLoginMode = true;
-             // Manual reset of texts
-            const title = qs('#authTitle');
-            const submitText = qs('#authSubmitText');
-            const switchText = qs('#authSwitchText');
-            const switchBtn = qs('#authSwitchBtn');
-            title.textContent = 'Iniciar Sesión';
-            submitText.textContent = 'Entrar';
-            switchText.textContent = '¿No tienes cuenta?';
-            switchBtn.textContent = 'Regístrate';
-            
-            showModal('#authModal');
-        }
-    });
-    
-    on(qs('#authClose'), 'click', () => hideModal('#authModal'));
-    on(qs('#accountClose'), 'click', () => hideModal('#accountModal'));
-    on(qs('#authSwitchBtn'), 'click', toggleAuthMode);
-    on(qs('#authForm'), 'submit', handleAuthSubmit);
-    on(qs('#btnLogout'), 'click', handleLogout);
+    // Wire events exactly once (initAuthUI can be called many times via auth updates)
+    if (!uiWired) {
+        uiWired = true;
+        on(qs('#authBtn'), 'click', () => {
+            const currentUser = window.__planningweb_user || null;
+            if (currentUser) {
+                showModal('#accountModal');
+            } else {
+                isLoginMode = true;
+                // Manual reset of texts
+                const title = qs('#authTitle');
+                const submitText = qs('#authSubmitText');
+                const switchText = qs('#authSwitchText');
+                const switchBtn = qs('#authSwitchBtn');
+                if (title) title.textContent = 'Iniciar Sesión';
+                if (submitText) submitText.textContent = 'Entrar';
+                if (switchText) switchText.textContent = '¿No tienes cuenta?';
+                if (switchBtn) switchBtn.textContent = 'Regístrate';
+                showModal('#authModal');
+            }
+        });
 
-    on(qs('#btnDeleteAccount'), 'click', handleDelete);
-    
-    on(qs('#btnShowChangePass'), 'click', () => toggleChangePass(true));
-    on(qs('#btnCancelPass'), 'click', () => toggleChangePass(false));
-    on(qs('#btnSavePass'), 'click', handleUpdatePassword);
+        on(qs('#authClose'), 'click', () => hideModal('#authModal'));
+        on(qs('#accountClose'), 'click', () => hideModal('#accountModal'));
+        on(qs('#authSwitchBtn'), 'click', toggleAuthMode);
+        on(qs('#authForm'), 'submit', handleAuthSubmit);
+        on(qs('#btnLogout'), 'click', handleLogout);
+        on(qs('#btnDeleteAccount'), 'click', handleDelete);
+        on(qs('#btnShowChangePass'), 'click', () => toggleChangePass(true));
+        on(qs('#btnCancelPass'), 'click', () => toggleChangePass(false));
+        on(qs('#btnSavePass'), 'click', handleUpdatePassword);
+    }
+
+    // Update global reference for the one-time click handler
+    window.__planningweb_user = user || null;
     
     // Update UI state
     if (user) {

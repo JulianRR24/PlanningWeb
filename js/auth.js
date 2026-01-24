@@ -5,6 +5,9 @@ export const authState = {
     session: null
 };
 
+let authInitialized = false;
+let authUnsubscribe = null;
+
 // Listeners for auth state changes
 const listeners = [];
 export const onAuthChange = (callback) => {
@@ -14,14 +17,19 @@ export const onAuthChange = (callback) => {
 };
 
 export const initAuth = async () => {
+    if (authInitialized) return;
+    authInitialized = true;
+
     // Check initial session
     const { data: { session } } = await supabase.auth.getSession();
     updateState(session);
 
     // Subscribe to changes
-    supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         updateState(session);
     });
+
+    authUnsubscribe = data?.subscription;
 };
 
 const updateState = (session) => {

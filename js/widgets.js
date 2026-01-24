@@ -4,21 +4,25 @@ import { renderHeader } from "./header.js";
 import { initAuth, onAuthChange } from "./auth.js";
 import { initAuthUI } from "./auth_ui.js";
 import { qs, on, uid, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
+import { ensureCommonModals, wireSettingsModal } from "./common_modals.js";
+
+let hasUser = false;
 
 const initPage = async () => {
     // 1. Render immediately
     renderHeader();
+    ensureCommonModals();
     initTheme();
     initSyncIndicator(); // New
     await initAuth();
     onAuthChange(async (user) => {
         initAuthUI(user);
-        if (user) {
-            await syncFromRemote(true);
-            await renderList();
-        }
+        hasUser = Boolean(user);
+        if (!user) return;
+        await syncFromRemote(true);
+        await renderList();
     });
-    await wireSettings();
+    await wireSettingsModal({ getItem, setItem, qs, on, toggleTheme, updateThemeLabel });
     on(qs("#saveWidget"), "click", async () => saveWidget());
     on(qs("#deleteWidgetBtn"), "click", async () => clearWidgets());
     
@@ -29,11 +33,10 @@ const initPage = async () => {
             return false;
         });
     }
-    
-    await renderList();
 
     // 2. Sync in background
     requestIdleCallback(async () => {
+        if (!hasUser) return;
         setSyncStatus("syncing");
         const ok = await syncFromRemote();
         if (ok) {
@@ -44,38 +47,6 @@ const initPage = async () => {
             setSyncStatus("error");
         }
     });
-};
-
-const wireSettings = async () => {
-    const settingsBtn = qs("#settingsBtn");
-    const modal = qs("#settingsModal");
-    const closeBtn = qs("#settingsClose");
-    const saveSettings = qs("#saveSettings");
-    const askNotifyPerm = qs("#askNotifyPerm");
-    const ns = await getItem("notifyBeforeStart") ?? 10;
-    const ne = await getItem("notifyBeforeEnd") ?? 5;
-    const nsEl = qs("#notifyBeforeStart");
-    const neEl = qs("#notifyBeforeEnd");
-    const themeToggle = qs("#themeToggle");
-    if (nsEl) nsEl.value = ns;
-    if (neEl) neEl.value = ne;
-    on(settingsBtn, "click", () => { 
-        if (modal) { 
-            modal.classList.remove("hidden"); 
-            modal.classList.add("flex"); 
-            updateThemeLabel();
-        } 
-    });
-    on(closeBtn, "click", () => { if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); } });
-    on(themeToggle, "click", toggleTheme);
-    on(saveSettings, "click", () => {
-        const v1 = Number(nsEl?.value || 10);
-        const v2 = Number(neEl?.value || 5);
-        setItem("notifyBeforeStart", Math.max(0, v1));
-        setItem("notifyBeforeEnd", Math.max(0, v2));
-        if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); }
-    });
-    on(askNotifyPerm, "click", async () => { try { await Notification.requestPermission(); } catch { } });
 };
 
 const readForm = () => {
@@ -101,15 +72,7 @@ const saveWidget = async () => {
         list.push(w);
     }
     setItem("widgets", list);
-    
-    syncToRemote("widgets").then(success => {
-        if (success) {
-            console.log('✅ Widgets sincronizados con BD');
-        } else {
-            console.warn('⚠️ Error al sincronizar widgets con BD');
-        }
-    });
-    
+
     await renderList();
 };
 

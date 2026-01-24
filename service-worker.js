@@ -4,19 +4,25 @@ try {
     console.warn('⚠️ OneSignal SW blocked (AdBlock?):', e);
 }
 
-const CACHE_NAME = 'planning-hub-v2';
+const CACHE_NAME = 'planning-hub-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
-    './rutinas.html',
-    './widgets.html',
-    './mercado.html',
+    './layouts/inicio.html',
+    './layouts/rutinas.html',
+    './layouts/widgets.html',
+    './layouts/mercado.html',
     './css/style.css',
     './js/app.js',
     './js/routines.js',
     './js/widgets.js',
     './js/storage.js',
     './js/ui.js',
+    './js/header.js',
+    './js/auth.js',
+    './js/auth_ui.js',
+    './js/common_modals.js',
+    './js/push.js',
     './js/supabase.js',
     './manifest.json',
     // 'https://cdn.tailwindcss.com', // Removed to avoid CORS errors
@@ -60,7 +66,8 @@ self.addEventListener('fetch', (event) => {
     if (url.protocol.startsWith('http') && (
         url.hostname.includes('supabase.co') ||
         url.hostname.includes('meteosource.com') ||
-        url.hostname.includes('alphavantage.co')
+        url.hostname.includes('alphavantage.co') ||
+        url.hostname.includes('onesignal.com')
     )) {
         return; // Deja que el navegador maneje la red por defecto without cache
     }
@@ -108,11 +115,11 @@ self.addEventListener('fetch', (event) => {
 // --- Push Notifications Logic (Preserved) ---
 
 self.addEventListener('notificationclick', (event) => {
-    const url = './index.html';
+    const url = './layouts/inicio.html';
     event.notification.close();
     event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
         for (const client of clientList) {
-            if (client.url.includes('index.html') && 'focus' in client) {
+            if (client.url.includes('/layouts/inicio.html') && 'focus' in client) {
                 return client.focus();
             }
         }

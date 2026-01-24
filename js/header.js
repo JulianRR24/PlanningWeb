@@ -4,6 +4,9 @@ import { initAuth, onAuthChange, signOut } from './auth.js';
 import { clearLocalData } from './storage.js';
 
 export const renderHeader = () => {
+    const inLayouts = window.location.pathname.replace(/\\/g, "/").includes("/layouts/");
+    const base = inLayouts ? ".." : ".";
+
     const headerHTML = `
       <div
         class="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0"
@@ -15,22 +18,22 @@ export const renderHeader = () => {
         <nav class="flex flex-wrap justify-center items-center gap-3 text-sm">
           <a
             class="px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-            href="./index.html"
+            href="${base}/layouts/inicio.html"
             >Inicio</a
           >
           <a
             class="px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-            href="./siata.html"
+            href="${base}/layouts/siata.html"
             >SIATA</a
           >
           <a
             class="px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-            href="./rutinas.html"
+            href="${base}/layouts/rutinas.html"
             >Rutinas</a
           >
           <a
             class="px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-            href="./widgets.html"
+            href="${base}/layouts/widgets.html"
             >Widgets</a
           >
           <button

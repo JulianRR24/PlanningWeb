@@ -3,6 +3,8 @@ import { uid } from "./ui.js";
 
 const ONESIGNAL_APP_ID = "2d86bc3b-c723-4b2a-a414-7724e0018c27"; 
 
+let sessionDeviceId = null;
+
 export const initOneSignal = async () => {
     try {
         console.log("🚀 Starting OneSignal Init..."); 
@@ -38,17 +40,13 @@ export const initOneSignal = async () => {
                 });
             }
 
-            let deviceId = localStorage.getItem("planning_device_id");
-            if (!deviceId) {
-                deviceId = uid("dev_");
-                localStorage.setItem("planning_device_id", deviceId);
-            }
+            if (!sessionDeviceId) sessionDeviceId = uid("dev_");
 
             OneSignal.User.PushSubscription.addEventListener("change", async (event) => {
-                await updateSubscription(deviceId);
+                await updateSubscription(sessionDeviceId);
             });
 
-            await updateSubscription(deviceId);
+            await updateSubscription(sessionDeviceId);
         });
     } catch (e) {
         console.error("OneSignal init error:", e);

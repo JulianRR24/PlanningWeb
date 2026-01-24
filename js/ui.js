@@ -1,7 +1,16 @@
 export const qs = (s, r = document) => r.querySelector(s);
 export const qsa = (s, r = document) => Array.from(r.querySelectorAll(s));
 export const on = (el, ev, fn) => { if (!el) return; el.addEventListener(ev, fn); };
-export const uid = (p = "id") => p + Math.random().toString(36).slice(2, 10);
+export const uid = (p = "id") => {
+    const c = globalThis?.crypto;
+    if (c?.randomUUID) return p + c.randomUUID().replace(/-/g, "");
+    if (c?.getRandomValues) {
+        const bytes = new Uint8Array(16);
+        c.getRandomValues(bytes);
+        return p + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+    return p + Math.random().toString(36).slice(2, 10);
+};
 export const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 export const dayName = { mon: "Lunes", tue: "Martes", wed: "Miércoles", thu: "Jueves", fri: "Viernes", sat: "Sábado", sun: "Domingo" };
 export const todayKey = () => {
@@ -29,9 +38,8 @@ export const updateThemeLabel = () => {
 };
 
 export const initTheme = () => {
-    const stored = localStorage.getItem("theme");
     const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    if (stored === "dark" || (!stored && systemDark)) {
+    if (systemDark) {
         document.documentElement.classList.add("dark");
     } else {
         document.documentElement.classList.remove("dark");
@@ -43,10 +51,8 @@ export const toggleTheme = () => {
     const isDark = document.documentElement.classList.contains("dark");
     if (isDark) {
         document.documentElement.classList.remove("dark");
-        localStorage.setItem("theme", "light");
     } else {
         document.documentElement.classList.add("dark");
-        localStorage.setItem("theme", "dark");
     }
     updateThemeLabel();
 };

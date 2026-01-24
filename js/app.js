@@ -4,13 +4,19 @@ import { initAuthUI } from "./auth_ui.js";
 import { renderHeader } from "./header.js";
 import { qs, qsa, on, uid, todayKey, hhmmToMinutes, minutesToTop, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
 import { initOneSignal } from "./push.js";
+import { ensureCommonModals, wireSettingsModal } from "./common_modals.js";
 
 let swReg = null;
+let timeNeedleIntervalId = null;
+let notificationSchedulerStarted = false;
+
+const inLayouts = window.location.pathname.replace(/\\/g, "/").includes("/layouts/");
+const basePath = inLayouts ? ".." : ".";
 
 const registerServiceWorker = async () => {
     try {
         if (!('serviceWorker' in navigator)) return;
-        swReg = await navigator.serviceWorker.register('./service-worker.js');
+        swReg = await navigator.serviceWorker.register(`${basePath}/service-worker.js`);
         await navigator.serviceWorker.ready;
     } catch { }
 };
@@ -21,19 +27,15 @@ const ensureBootstrapData = async () => {
     const activeRoutineId = await getItem("activeRoutineId");
 
     if (routines === null || routines === undefined) {
-        console.log('🔧 Inicializando routines vacío (no existe en BD ni local)');
-        setItem("routines", [], false); 
+        setItem("routines", []);
     }
     if (widgets === null || widgets === undefined) {
-        console.log('🔧 Inicializando widgets vacío (no existe en BD ni local)');
-        setItem("widgets", [], false); 
+        setItem("widgets", []);
     }
     if (activeRoutineId === null || activeRoutineId === undefined) {
-        console.log('🔧 Inicializando activeRoutineId vacío (no existe en BD ni local)');
-        setItem("activeRoutineId", "", false); 
+        setItem("activeRoutineId", "");
     }
 };
-
 
 const renderWidgetsOnHome = async () => {
     const grid = qs("#widgetsGrid");
@@ -63,7 +65,7 @@ const renderWidgetsOnHome = async () => {
         card.appendChild(body);
         grid.appendChild(card);
     }
-    on(qs("#manageWidgets"), "click", () => location.href = "./widgets.html");
+    on(qs("#manageWidgets"), "click", () => location.href = `${basePath}/layouts/widgets.html`);
 };
 
 const renderMarketWidgetSummary = async () => {
@@ -346,175 +348,78 @@ const activeRoutineSelector = async () => {
         if (r.id === activeId) o.selected = true;
         select.appendChild(o);
     });
-    on(select, "change", async () => {
+    // Avoid accumulating listeners across re-renders
+    select.onchange = async () => {
         setItem("activeRoutineId", select.value);
         await dayGridLayout();
-    });
+    };
 };
 
 const currentDateText = () => {
     const el = qs("#currentDate");
     if (!el) return;
-    const now = new Date();
-    el.textContent = now.toLocaleDateString("es-CO", { weekday: "long", day: "2-digit", month: "long" });
+    el.textContent = new Date().toLocaleDateString("es-CO", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short"
+    });
 };
 
-const initHome = async () => {
-    try {
-        // 1️⃣ Cargar interfaz inmediatamente con datos desde BD (fuente de verdad)
+const initPage = async () => {
+    renderHeader();
+    ensureCommonModals();
+    initTheme();
+    initSyncIndicator();
+    await wireSettingsModal({ getItem, setItem, qs, on, toggleTheme, updateThemeLabel });
+
+    registerServiceWorker();
+    initOneSignal();
+
+    await initAuth();
+    onAuthChange(async (user) => {
+        initAuthUI(user);
+        if (!user) {
+            return;
+        }
+
+        // Render immediately from cached/local values, then refresh from remote
         await ensureBootstrapData();
-        renderHeader(); // ⬅️ Render header first
-        initTheme();
-        initSyncIndicator(); // New
-        await wireSettings();
-        registerServiceWorker();
-        initOneSignal(); // Initialize OneSignal
         await renderWidgetsOnHome();
         hoursColumn();
-        await dayGridLayout();
         await activeRoutineSelector();
+        await dayGridLayout();
         currentDateText();
         timeNeedle();
-        setInterval(timeNeedle, 30000);
-        await startNotificationScheduler();
 
-        // 2️⃣ Sincronizar con Supabase en segundo plano (sin bloquear)
-        requestIdleCallback(async () => {
+        if (!timeNeedleIntervalId) {
+            timeNeedleIntervalId = setInterval(timeNeedle, 60000);
+        }
+
+        if (!notificationSchedulerStarted) {
+            notificationSchedulerStarted = true;
+            await startNotificationScheduler();
+        }
+
+        // Background sync and refresh UI after it completes
+        (async () => {
             setSyncStatus("syncing");
-            const ok = await syncFromRemote(false);
-            if (ok) {
-                console.log("✅ Datos sincronizados con Supabase (en segundo plano)");
-                // Re-render si hubo cambios nuevos desde BD
-                await renderWidgetsOnHome();
-                await activeRoutineSelector();
-                setSyncStatus("success");
-            } else {
-                console.warn("⚠️ Falló la sincronización (offline mode)");
+            const ok = await syncFromRemote(true);
+            if (!ok) {
                 setSyncStatus("error");
+                return;
             }
-        });
-
-        // 3️⃣ Inicializar autenticación
-        await initAuth();
-        onAuthChange(async (user) => {
-            initAuthUI(user);
-            if (user) {
-                console.log('👤 Usuario detectado, sincronizando datos...');
-                const ok = await syncFromRemote(true); // Force sync
-                if (ok) {
-                    await renderWidgetsOnHome();
-                    await activeRoutineSelector();
-                    await dayGridLayout();
-                    console.log('✅ Datos restaurados tras login');
-                }
-            } else {
-                // If logout, maybe clear UI or just leave it (clearLocalData handled by auth_ui)
-                renderHeader(); // Refresh header state
-            }
-        });
-
-    } catch (error) {
-        console.error("Error al inicializar:", error);
-    }
+            await ensureBootstrapData();
+            await renderWidgetsOnHome();
+            await activeRoutineSelector();
+            await dayGridLayout();
+            setSyncStatus("success");
+        })().catch(() => { });
+    });
 };
 
-document.addEventListener("DOMContentLoaded", initHome);
-
-
-
-const wireSettings = async () => {
-    const settingsBtn = qs("#settingsBtn");
-    const modal = qs("#settingsModal");
-    const closeBtn = qs("#settingsClose");
-    const saveSettings = qs("#saveSettings");
-    const askNotifyPerm = qs("#askNotifyPerm");
-    const askGeoPerm = qs("#askGeoPerm");
-    const themeToggle = qs("#themeToggle");
-    const ns = await getItem("notifyBeforeStart") ?? 10;
-    const ne = await getItem("notifyBeforeEnd") ?? 5;
-    const nsEl = qs("#notifyBeforeStart");
-    const neEl = qs("#notifyBeforeEnd");
-    if (nsEl) nsEl.value = ns;
-    if (neEl) neEl.value = ne;
-    on(settingsBtn, "click", () => { 
-        if (modal) { 
-            modal.classList.remove("hidden"); 
-            modal.classList.add("flex"); 
-            updateThemeLabel(); // Ensure label is correct when opening
-        } 
-    });
-    on(closeBtn, "click", () => { if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); } });
-    on(themeToggle, "click", toggleTheme);
-    on(saveSettings, "click", async () => {
-        const v1 = Number(nsEl?.value || 10);
-        const v2 = Number(neEl?.value || 5);
-        await setItem("notifyBeforeStart", Math.max(0, v1), true);
-        await setItem("notifyBeforeEnd", Math.max(0, v2), true);
-        if (modal) { modal.classList.add("hidden"); modal.classList.remove("flex"); }
-    });
-    on(askNotifyPerm, "click", async () => {
-        try {
-            console.log("🖱️ Botón de permisos clickeado");
-            
-            // 1. Verificar si OneSignal ya cargó
-            if (window.OneSignal && window.OneSignal.Notifications) {
-                console.log("🔔 Solicitando permiso vía OneSignal (SDK OK)...");
-                await window.OneSignal.Notifications.requestPermission();
-                updatePermStates();
-            } 
-            // 2. Si aún no carga, usar la cola (Deferred)
-            else if (window.OneSignalDeferred) {
-                console.log("⏳ OneSignal cargando... encolando solicitud");
-                window.OneSignalDeferred.push(async (OneSignal) => {
-                    await OneSignal.Notifications.requestPermission();
-                    updatePermStates();
-                });
-            } 
-            // 3. Fallback crítico
-            else {
-                console.warn("⚠️ OneSignal no detectado. Usando API nativa.");
-                await Notification.requestPermission();
-                updatePermStates();
-            }
-        } catch (e) {
-            console.error("❌ Error al solicitar permisos:", e);
-        }
-    });
-    on(askGeoPerm, "click", async () => {
-        try {
-            if (!navigator.geolocation) return;
-            navigator.geolocation.getCurrentPosition(() => updatePermStates(), () => updatePermStates(), { enableHighAccuracy: true, timeout: 8000 });
-        } catch { }
-    });
-
-    const updateButtonStyle = (el, active, label) => {
-        if (!el) return;
-        el.textContent = label;
-        el.className = active
-            ? "px-3 py-2 rounded-md border border-emerald-500 text-emerald-600"
-            : "px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700";
-    };
-
-    const updatePermStates = async () => {
-        try {
-            const notif = Notification?.permission === "granted";
-            updateButtonStyle(askNotifyPerm, notif, notif ? "Notificaciones: activas" : "Permiso de notificaciones");
-        } catch { }
-        try {
-            if (navigator.permissions) {
-                const geo = await navigator.permissions.query({ name: "geolocation" });
-                const granted = geo.state === "granted";
-                updateButtonStyle(askGeoPerm, granted, granted ? "Ubicación: activa" : "Permiso de ubicación");
-                geo.onchange = () => updatePermStates();
-            } else {
-                updateButtonStyle(askGeoPerm, false, "Permiso de ubicación");
-            }
-        } catch {
-            updateButtonStyle(askGeoPerm, false, "Permiso de ubicación");
-        }
-    };
-    updatePermStates();
-};
+document.addEventListener("DOMContentLoaded", () => {
+    initPage().catch(() => { });
+});
 
 const startNotificationScheduler = async () => {
     const tick = async () => {

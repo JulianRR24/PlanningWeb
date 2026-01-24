@@ -4,10 +4,37 @@ import { renderHeader } from "./header.js";
 import { initAuth, onAuthChange } from "./auth.js";
 import { initAuthUI } from "./auth_ui.js";
 import { qs, qsa, on, uid, days, dayName, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator, setSyncStatus } from "./ui.js";
+import { ensureCommonModals, wireSettingsModal } from "./common_modals.js";
 
 const state = { editingId: "", buffer: null, editingEventId: "" };
+let hasUser = false;
+let pageInitialized = false;
+let editorWired = false;
+let savingRoutine = false;
+let duplicatingRoutine = false;
+const deletingRoutineIds = new Set();
+
+const normalizeRoutines = (val) => {
+  const list = Array.isArray(val) ? val : [];
+  const byId = new Map();
+  for (const r of list) {
+    if (!r || typeof r !== "object") continue;
+    if (!r.id || typeof r.id !== "string") continue;
+    const prev = byId.get(r.id);
+    if (!prev) {
+      byId.set(r.id, r);
+      continue;
+    }
+    const prevTs = typeof prev.updatedAt === "number" ? prev.updatedAt : 0;
+    const rTs = typeof r.updatedAt === "number" ? r.updatedAt : 0;
+    byId.set(r.id, rTs >= prevTs ? r : prev);
+  }
+  return Array.from(byId.values());
+};
 
 const initPage = async () => {
+  if (pageInitialized) return;
+  pageInitialized = true;
   // 1. Render immediately with local data
   if (!state.buffer) {
     state.buffer = emptyRoutine();
@@ -15,22 +42,35 @@ const initPage = async () => {
   
   mountDaySelect();
   renderHeader();
+  ensureCommonModals();
   initTheme();
   initSyncIndicator(); // New
   
   await initAuth();
   onAuthChange(async (user) => {
       initAuthUI(user);
-      if (user) {
-          await syncFromRemote(true);
-          await renderRoutines();
+      hasUser = Boolean(user);
+      if (!user) return;
+
+      // Render immediately from cached/local values
+      await renderRoutines();
+
+      // Then refresh from remote
+      setSyncStatus("syncing");
+      const ok = await syncFromRemote(true);
+      if (ok) {
+        await renderRoutines();
+        setSyncStatus("success");
+      } else {
+        setSyncStatus("error");
       }
   });
-  await renderRoutines();
+  await wireSettingsModal({ getItem, setItem, qs, on, toggleTheme, updateThemeLabel });
   await wireEditor();
 
   // 2. Sync in background (non-blocking)
   requestIdleCallback(async () => {
+    if (!hasUser) return;
     setSyncStatus("syncing");
     const ok = await syncFromRemote();
     if (ok) {
@@ -150,34 +190,40 @@ const renderDayEvents = () => {
 };
 
 const saveRoutine = async () => {
-  const r = readFormRoutine();
-  if (!r) return;
-  const list = await getItem("routines") || [];
-  if (!state.editingId) {
-    const toSave = { ...state.buffer, id: r.id, name: r.name };
-    setItem("routines", [...list, toSave]);
-    state.editingId = toSave.id;
-  } else {
-    const idx = list.findIndex(x => x.id === state.editingId);
-    if (idx >= 0) {
-      list[idx] = { ...state.buffer, id: state.editingId, name: r.name };
-      setItem("routines", list);
-    }
-  }
-  
-  syncToRemote("routines").then(success => {
-    if (success) {
-      console.log('✅ Rutinas sincronizadas con BD');
+  if (savingRoutine) return;
+  savingRoutine = true;
+  try {
+    const r = readFormRoutine();
+    if (!r) return;
+    const list = normalizeRoutines(await getItem("routines"));
+    if (!state.editingId) {
+      const toSave = { ...state.buffer, id: r.id, name: r.name, updatedAt: Date.now() };
+      setItem("routines", normalizeRoutines([...list, toSave]));
+      state.editingId = toSave.id;
     } else {
-      console.warn('⚠️ Error al sincronizar rutinas con BD');
+      const idx = list.findIndex(x => x.id === state.editingId);
+      if (idx >= 0) {
+        list[idx] = { ...state.buffer, id: state.editingId, name: r.name, updatedAt: Date.now() };
+        setItem("routines", normalizeRoutines(list));
+      }
     }
-  });
-  
-  await renderRoutines();
+    
+    syncToRemote("routines").then(success => {
+      if (success) {
+        console.log('✅ Rutinas sincronizadas con BD');
+      } else {
+        console.warn('⚠️ Error al sincronizar rutinas con BD');
+      }
+    });
+    
+    await renderRoutines();
+  } finally {
+    savingRoutine = false;
+  }
 };
 
 const renderRoutines = async () => {
-  const list = await getItem("routines") || [];
+  const list = normalizeRoutines(await getItem("routines"));
   const wrap = qs("#routinesList");
   wrap.innerHTML = "";
   for (const r of list) {
@@ -233,7 +279,7 @@ const renderRoutines = async () => {
 };
 
 const loadRoutine = async (id) => {
-  const list = await getItem("routines") || [];
+  const list = normalizeRoutines(await getItem("routines"));
   const r = list.find(x => x.id === id);
   if (!r) return;
   state.editingId = id;
@@ -243,42 +289,56 @@ const loadRoutine = async (id) => {
 };
 
 const duplicateRoutine = async (id) => {
-  const list = await getItem("routines") || [];
-  const r = list.find(x => x.id === id);
-  if (!r) return;
-  const copy = { ...JSON.parse(JSON.stringify(r)), id: uid("r_"), name: r.name + " (copia)" };
-  setItem("routines", [...list, copy]);
-  
-  syncToRemote("routines").then(success => {
-    if (success) {
-      console.log('✅ Rutinas sincronizadas con BD (duplicar)');
-    } else {
-      console.warn('⚠️ Error al sincronizar rutinas con BD (duplicar)');
-    }
-  });
-  
-  await renderRoutines();
+  if (duplicatingRoutine) return;
+  duplicatingRoutine = true;
+  try {
+    const list = normalizeRoutines(await getItem("routines"));
+    const r = list.find(x => x.id === id);
+    if (!r) return;
+    const copy = { ...JSON.parse(JSON.stringify(r)), id: uid("r_"), name: r.name + " (copia)", updatedAt: Date.now() };
+    setItem("routines", normalizeRoutines([...list, copy]));
+    
+    syncToRemote("routines").then(success => {
+      if (success) {
+        console.log('✅ Rutinas sincronizadas con BD (duplicar)');
+      } else {
+        console.warn('⚠️ Error al sincronizar rutinas con BD (duplicar)');
+      }
+    });
+    
+    await renderRoutines();
+  } finally {
+    duplicatingRoutine = false;
+  }
 };
 
 const deleteRoutine = async (id) => {
-  const list = await getItem("routines") || [];
-  const filtered = list.filter(x => x.id !== id);
-  setItem("routines", filtered);
-  if (await getItem("activeRoutineId") === id) setItem("activeRoutineId", "");
-  if (state.editingId === id) { state.editingId = ""; state.buffer = null; qs("#routineName").value = ""; qs("#dayEvents").innerHTML = ""; }
-  
-  syncToRemote("routines").then(success => {
-    if (success) {
-      console.log('✅ Rutinas sincronizadas con BD (eliminar)');
-    } else {
-      console.warn('⚠️ Error al sincronizar rutinas con BD (eliminar)');
-    }
-  });
-  
-  await renderRoutines();
+  if (deletingRoutineIds.has(id)) return;
+  deletingRoutineIds.add(id);
+  try {
+    const list = normalizeRoutines(await getItem("routines"));
+    const filtered = list.filter(x => x.id !== id);
+    setItem("routines", normalizeRoutines(filtered));
+    if (await getItem("activeRoutineId") === id) setItem("activeRoutineId", "");
+    if (state.editingId === id) { state.editingId = ""; state.buffer = null; qs("#routineName").value = ""; qs("#dayEvents").innerHTML = ""; }
+    
+    syncToRemote("routines").then(success => {
+      if (success) {
+        console.log('✅ Rutinas sincronizadas con BD (eliminar)');
+      } else {
+        console.warn('⚠️ Error al sincronizar rutinas con BD (eliminar)');
+      }
+    });
+    
+    await renderRoutines();
+  } finally {
+    deletingRoutineIds.delete(id);
+  }
 };
 
 const wireEditor = async () => {
+  if (editorWired) return;
+  editorWired = true;
   const form = qs("#routineForm");
   if (form) {
     on(form, "submit", (e) => {

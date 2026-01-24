@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PlanningHub • Rutinas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="../assets/icons/icon-192.png">
+    <link href="../dist/output.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
+    <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+        appId: "2d86bc3b-c723-4b2a-a414-7724e0018c27",
+        safari_web_id: "web.onesignal.auto.147da6f8-95e8-4f3e-9e77-8dc52e1c58f0",
+        notifyButton: {
+            enable: true,
+        },
+        });
+    });
+    </script>
+</head>
+
+<body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+    <header></header>
+
+    <main class="max-w-5xl mx-auto px-4 py-6 space-y-8">
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Gestionar Rutinas</h2>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="newRoutineBtn"
+                        class="px-3 py-2 rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-900">Nueva
+                        rutina</button>
+                    <button type="button" id="exportRoutines"
+                        class="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700">Exportar</button>
+                    <label
+                        class="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer">Importar
+                        <input id="importRoutines" type="file" accept="application/json" class="hidden">
+                    </label>
+                </div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4" id="routinesList"></div>
+        </section>
+
+        <section class="space-y-4">
+            <h2 class="text-lg font-semibold">Editor</h2>
+            <form id="routineForm" class="space-y-4">
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <input id="routineName" type="text"
+                        class="px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                        placeholder="Nombre de la rutina">
+                    <select id="routineDay"
+                        class="px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    </select>
+                </div>
+                <div class="grid sm:grid-cols-6 gap-2">
+                    <input id="eventStart" type="time"
+                        class="px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <input id="eventEnd" type="time"
+                        class="px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <input id="eventTitle" type="text"
+                        class="sm:col-span-2 px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                        placeholder="Título">
+                    <input id="eventCategory" type="text"
+                        class="px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                        placeholder="Categoría">
+                    <input id="eventColor" type="color"
+                        class="px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                </div>
+                <textarea id="eventDesc" rows="3"
+                    class="w-full px-3 py-2 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    placeholder="Descripción (multi-línea)">
+                </textarea>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="addEventBtn"
+                        class="px-3 py-2 rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-900">Agregar
+                        evento</button>
+                    <button type="button" id="saveRoutineBtn"
+                        class="px-3 py-2 rounded-md border border-slate-200 dark:border-slate-700">Guardar rutina</button>
+                    <button type="submit" style="display: none;">Submit</button>
+                </div>
+                <div id="dayEvents" class="grid gap-2"></div>
+            </form>
+        </section>
+    </main>
+
+    <script type="module" src="../js/routines.js"></script>
+</body>
+
+</html>

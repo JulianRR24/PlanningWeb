@@ -1,35 +1,165 @@
 import { supabase } from "./supabase.js";
 import { authState } from "./auth.js";
 
+const memStore = new Map();
+const inFlightFetches = new Map();
+const healedKeys = new Set();
+
+const userCachePrefix = () => {
+    const uid = authState.user?.id;
+    return uid ? `planningweb-cache:${uid}:` : null;
+};
+
+const persistKey = (k) => {
+    const p = userCachePrefix();
+    return p ? p + k : null;
+};
+
+const loadPersisted = (k) => {
+    const pk = persistKey(k);
+    if (!pk) return null;
+    try {
+        const raw = localStorage.getItem(pk);
+        if (raw === null || raw === undefined) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+};
+
+const savePersisted = (k, v) => {
+    const pk = persistKey(k);
+    if (!pk) return;
+    try {
+        localStorage.setItem(pk, JSON.stringify(v));
+    } catch { }
+};
+
+const mergeRoutines = (localVal, remoteVal) => {
+    const local = Array.isArray(localVal) ? localVal : [];
+    const remote = Array.isArray(remoteVal) ? remoteVal : [];
+
+    const byId = new Map();
+
+    for (const r of remote) {
+        if (!r || typeof r !== 'object') continue;
+        if (!r.id || typeof r.id !== 'string') continue;
+        byId.set(r.id, r);
+    }
+
+    for (const r of local) {
+        if (!r || typeof r !== 'object') continue;
+        if (!r.id || typeof r.id !== 'string') continue;
+
+        const prev = byId.get(r.id);
+        if (!prev) {
+            byId.set(r.id, r);
+            continue;
+        }
+
+        const prevTs = typeof prev.updatedAt === 'number' ? prev.updatedAt : 0;
+        const rTs = typeof r.updatedAt === 'number' ? r.updatedAt : 0;
+        byId.set(r.id, rTs >= prevTs ? r : prev);
+    }
+
+    return Array.from(byId.values());
+};
+
+const decodePossiblyDoubleEncoded = (val) => {
+    let cur = val;
+    for (let i = 0; i < 3; i++) {
+        if (typeof cur !== "string") return cur;
+        const trimmed = cur.trim();
+        if (!(trimmed.startsWith("{") || trimmed.startsWith("[") || trimmed.startsWith('"'))) return cur;
+        const parsed = parseJson(trimmed);
+        if (parsed === null) return cur;
+        cur = parsed;
+    }
+    return cur;
+};
+
+const NS = "planningweb:";
+
+const keyPrefix = (k) => NS + k;
+const parseJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
+const toJson = (v) => { try { return JSON.stringify(v); } catch { return null; } };
+
+const getLocal = (k) => {
+    if (memStore.has(k)) return memStore.get(k);
+    const persisted = loadPersisted(k);
+    if (persisted !== null && persisted !== undefined) {
+        memStore.set(k, persisted);
+        return persisted;
+    }
+    return null;
+};
+const putLocal = (k, v) => {
+    memStore.set(k, v);
+    savePersisted(k, v);
+};
+
+const isValidData = (data, key) => {
+    if (data === null || data === undefined) return false;
+
+    if (key === 'activeRoutineId') {
+        if (typeof data === 'string') return true;
+        return true;
+    }
+
+    if (key === 'lastVisit') {
+        const validDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        return validDays.includes(data) || data === '';
+    }
+
+    if (key === 'routines' || key === 'widgets') {
+        if (Array.isArray(data)) return true;
+        if (typeof data === 'string') {
+            try {
+                const parsed = decodePossiblyDoubleEncoded(data);
+                return Array.isArray(parsed);
+            } catch {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    return true;
+};
+
+export const clearLocalData = () => {
+    memStore.clear();
+    inFlightFetches.clear();
+    healedKeys.clear();
+    const prefix = userCachePrefix();
+    if (prefix) {
+        try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith(prefix)) localStorage.removeItem(k);
+            }
+        } catch { }
+    }
+    return;
+};
+
 export const forceSync = async () => {
     try {
-        console.log('🔄 Iniciando sincronización forzada...');
         const remoteKeys = await listRemoteKeys();
         const localKeys = keys();
         const allKeys = new Set([...remoteKeys, ...localKeys]);
 
-        let syncCount = 0;
         for (const k of allKeys) {
             const fullKey = keyPrefix(k);
-            try {
-                const remoteData = await fetchRemote(fullKey);
-                const localData = getLocal(fullKey);
-                
-                if (remoteData !== null && isValidData(remoteData, k)) {
-                    putLocal(fullKey, remoteData);
-                    syncCount++;
-                    console.log(`✅ Sincronizado: ${k}`);
-                } else if (remoteData === null && localData !== null) {
-                    await upsertRemote(fullKey, localData);
-                    syncCount++;
-                    console.log(`📤 Subido a remoto: ${k}`);
-                }
-            } catch (keyError) {
-                console.error(`❌ Error sincronizando ${k}:`, keyError);
+            const remoteData = await fetchRemote(fullKey);
+            const localData = getLocal(fullKey);
+
+            if (remoteData !== null && isValidData(remoteData, k)) {
+                putLocal(fullKey, remoteData);
+            } else if (remoteData === null && localData !== null && localData !== undefined) {
+                await upsertRemote(fullKey, localData);
             }
         }
-        
-        console.log(`🎉 Sincronización completada: ${syncCount} claves procesadas`);
         return true;
     } catch (error) {
         console.error('❌ Error crítico en forceSync:', error);
@@ -37,173 +167,76 @@ export const forceSync = async () => {
     }
 };
 
-const isValidData = (data, key) => {
-    // console.log('🔍 isValidData llamado:', { data, type: typeof data, key }); // Performance optimization: Removed verbose log
-    
-    if (data === null || data === undefined) return false;
-    
-    if (key === 'activeRoutineId') {
-        if (typeof data === 'string') {
-            return true; // Any string is technically valid for ID (empty string means none)
-        }
-        
-        const parsed = String(data);
-        return true;
-    }
-    
-    if (key === 'lastVisit') {
-        const validDays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-        return validDays.includes(data) || data === '';
-    }
-    
-    if (typeof data === 'string') {
-        try {
-            JSON.parse(data);
-        } catch {
-            return false;
-        }
-    }
-    
-    if (key === 'routines' || key === 'widgets') {
-        try {
-            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-            return Array.isArray(parsed);
-        } catch {
-            return false;
-        }
-    }
-    
-    if (typeof data === 'string') {
-        try {
-            JSON.parse(data);
-            return true;
-        } catch {
-            return true;
-        }
-    }
-    
-    return true;
-};
-
-const NS = "planningweb:";
-const BACKUP_PREFIX = "backup:";
-
-const keyPrefix = (k) => NS + k;
-const parseJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
-const toJson = (v) => { try { return JSON.stringify(v); } catch { return null; } };
-
-const createBackup = (key, value) => {
-    try {
-        const backupKey = BACKUP_PREFIX + key;
-        localStorage.setItem(backupKey, JSON.stringify({
-            timestamp: Date.now(),
-            data: value
-        }));
-    } catch (error) {
-        console.warn('⚠️ No se pudo crear backup:', error);
-    }
-};
-
-const restoreFromBackup = (key) => {
-    try {
-        const backupKey = BACKUP_PREFIX + key;
-        const backup = localStorage.getItem(backupKey);
-        if (backup) {
-            const { timestamp, data } = JSON.parse(backup);
-            const maxAge = 7 * 24 * 60 * 60 * 1000;
-            
-            if (Date.now() - timestamp < maxAge) {
-                console.log(`🔄 Restaurando ${key} desde backup`);
-                return data;
-            } else {
-                localStorage.removeItem(backupKey);
-            }
-        }
-    } catch (error) {
-        console.warn('⚠️ Error restaurando backup:', error);
-    }
-    return null;
-};
-
-const putLocal = (k, v) => { 
-    try { 
-        const j = toJson(v); 
-        if (j != null) {
-            const current = localStorage.getItem(k);
-            if (current) {
-                createBackup(k, parseJson(current));
-            }
-            localStorage.setItem(k, j); 
-            return true; 
-        }
-        return false; 
-    } catch (error) { 
-        console.error('❌ Error en putLocal:', error);
-        return false; 
-    } 
-};
-
-const getLocal = (k) => { 
-    try { 
-        const r = localStorage.getItem(k); 
-        return r == null ? null : parseJson(r); 
-    } catch (error) { 
-        console.error('❌ Error en getLocal:', error);
-        const backup = restoreFromBackup(k);
-        if (backup !== null) {
-            localStorage.setItem(k, toJson(backup));
-            return backup;
-        }
-        return null; 
-    } 
-};
-
-const removeLocal = (k) => { 
-    try { 
-        localStorage.removeItem(k); 
-        localStorage.removeItem(BACKUP_PREFIX + k);
-        return true; 
-    } catch (error) { 
-        console.error('❌ Error en removeLocal:', error);
-        return false; 
-    } 
-};
-
-
-export const clearLocalData = () => {
-    const localKeys = keys();
-    let count = 0;
-    for (const k of localKeys) {
-        removeLocal(keyPrefix(k));
-        count++;
-    }
-    console.log(`🧹 Datos locales limpiados: ${count} claves eliminadas`);
-};
-
 export const upsertRemote = async (k, v) => { 
     try { 
-        const jsonValue = toJson(v);
-        if (!jsonValue) {
-            console.error('❌ No se pudo serializar valor para upsertRemote');
+        if (!authState.user) {
+            console.error('❌ upsertRemote requiere sesión activa');
             return false;
         }
-        
         const payload = { 
             planning_web_kv_key: k, 
-            planning_web_kv_value: jsonValue
+            planning_web_kv_value: v
         };
         
-        // If logged in, attach user_id to ensure unique constraint (user_id, key) works
-        if (authState.user) {
-            payload.user_id = authState.user.id;
-        }
+        payload.user_id = authState.user.id;
 
         const { error } = await supabase
             .from("planning_web_key_value_store")
-            .upsert(payload, { onConflict: 'user_id, planning_web_kv_key' }); 
+            .upsert(payload, { onConflict: 'user_id, planning_web_kv_key' });
+
         if (error) {
-            console.error('❌ Error en upsertRemote:', error);
-            return false;
+            const { data: rows, error: selError } = await supabase
+                .from("planning_web_key_value_store")
+                .select("planning_web_kv_id")
+                .eq("planning_web_kv_key", k)
+                .eq("user_id", authState.user.id)
+                .order("planning_web_kv_updated_at", { ascending: false });
+
+            if (selError) {
+                console.error('❌ Error en upsertRemote:', error);
+                console.error('❌ Error listando filas existentes:', selError);
+                return false;
+            }
+
+            const keepId = rows?.[0]?.planning_web_kv_id;
+            if (keepId) {
+                const { error: updError } = await supabase
+                    .from("planning_web_key_value_store")
+                    .update({ planning_web_kv_value: v })
+                    .eq("planning_web_kv_id", keepId)
+                    .eq("user_id", authState.user.id);
+
+                if (updError) {
+                    console.error('❌ Error en upsertRemote:', error);
+                    console.error('❌ Error actualizando fila existente:', updError);
+                    return false;
+                }
+
+                if ((rows || []).length > 1) {
+                    const dupIds = rows.slice(1).map(r => r.planning_web_kv_id).filter(Boolean);
+                    if (dupIds.length) {
+                        await supabase
+                            .from("planning_web_key_value_store")
+                            .delete()
+                            .in("planning_web_kv_id", dupIds)
+                            .eq("user_id", authState.user.id);
+                    }
+                }
+
+                return true;
+            }
+
+            const { error: insError } = await supabase
+                .from("planning_web_key_value_store")
+                .insert(payload);
+
+            if (insError) {
+                console.error('❌ Error en upsertRemote:', error);
+                console.error('❌ Error insertando fila:', insError);
+                return false;
+            }
+
+            return true;
         }
         return true; 
     } catch (error) { 
@@ -214,7 +247,15 @@ export const upsertRemote = async (k, v) => {
 
 const deleteRemote = async (k) => { 
     try { 
-        const { error } = await supabase.from("planning_web_key_value_store").delete().eq("planning_web_kv_key", k); 
+        if (!authState.user) {
+            console.error('❌ deleteRemote requiere sesión activa');
+            return false;
+        }
+        const { error } = await supabase
+            .from("planning_web_key_value_store")
+            .delete()
+            .eq("planning_web_kv_key", k)
+            .eq("user_id", authState.user.id);
         if (error) {
             console.error('❌ Error en deleteRemote:', error);
             return false;
@@ -227,173 +268,123 @@ const deleteRemote = async (k) => {
 };
 
 const fetchRemote = async (k) => { 
-    try { 
-        let query = supabase.from("planning_web_key_value_store").select("planning_web_kv_value").eq("planning_web_kv_key", k);
-        
-        // Prioritize user-specific data if logged in
-        if (authState.user) {
-            query = query.eq("user_id", authState.user.id);
-        }
-        
-        const { data, error } = await query.maybeSingle(); 
-        
+    try {
+        if (!authState.user) return null;
+
+        const { data, error } = await supabase
+            .from("planning_web_key_value_store")
+            .select("planning_web_kv_value")
+            .eq("planning_web_kv_key", k)
+            .eq("user_id", authState.user.id)
+            .order("planning_web_kv_updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
         if (error) {
-            // Fallback: retry without user_id only if we didn't search specifically (or maybe strictly don't fallback to avoid pollution?)
-            // Actually, if we are logged in, we ONLY want our data.
-            console.error('❌ Error en fetchRemote:', error);
+            console.error(' Error en fetchRemote:', error);
             return null;
         }
-        
-        if (!data || !data.planning_web_kv_value) {
+
+        if (!data || data.planning_web_kv_value === undefined || data.planning_web_kv_value === null) {
             return null;
         }
-        
-        try {
-            if (data.planning_web_kv_value && typeof data.planning_web_kv_value === 'object') {
-                return data.planning_web_kv_value;
+
+        const rawVal = data.planning_web_kv_value;
+        const decoded = decodePossiblyDoubleEncoded(rawVal);
+
+        if (!healedKeys.has(k) && typeof rawVal === 'string') {
+            const healed = decodePossiblyDoubleEncoded(rawVal);
+            if (healed !== null && typeof healed === 'object') {
+                healedKeys.add(k);
+                upsertRemote(k, healed).catch(() => { });
             }
-            
-            if (k === 'planningweb:lastVisit') {
-                const validDays = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
-                if (validDays.includes(data.planning_web_kv_value)) {
-                    console.log('🔧 lastVisit detectado, devolviendo directamente:', data.planning_web_kv_value);
-                    return data.planning_web_kv_value;
-                }
+        }
+
+        if (k === 'planningweb:routines') {
+            if (Array.isArray(decoded)) return decoded;
+            if (typeof decoded === 'string') {
+                const parsed = decodePossiblyDoubleEncoded(decoded);
+                return Array.isArray(parsed) ? parsed : null;
             }
-            
-            const parsed = JSON.parse(data.planning_web_kv_value);
-            return parsed;
-        } catch (parseError) {
-            console.error(`❌ JSON corrupto en clave ${k}:`, parseError);
-            console.log('🔧 Valor corrupto:', data.planning_web_kv_value, 'Tipo:', typeof data.planning_web_kv_value);
-            
-            if (typeof data.planning_web_kv_value === 'object' && data.planning_web_kv_value !== null) {
-                console.log('🔧 Retornando objeto JSONB directamente:', data.planning_web_kv_value);
-                return data.planning_web_kv_value;
-            }
-            
-            if (data.planning_web_kv_value === '"sat"' || data.planning_web_kv_value === '"sun"' || data.planning_web_kv_value === '"mon"' || data.planning_web_kv_value === '"tue"' || data.planning_web_kv_value === '"wed"' || data.planning_web_kv_value === '"thu"' || data.planning_web_kv_value === '"fri"') {
-                console.log('🔧 Corrigiendo día de semana:', data.planning_web_kv_value);
-                return JSON.parse(data.planning_web_kv_value); // Parsear el string JSON para obtener el día
-            }
-            
-            if (data.planning_web_kv_value === 'sat' || data.planning_web_kv_value === 'sun' || data.planning_web_kv_value === 'mon' || data.planning_web_kv_value === 'tue' || data.planning_web_kv_value === 'wed' || data.planning_web_kv_value === 'thu' || data.planning_web_kv_value === 'fri') {
-                console.log('🔧 Corrigiendo día de semana sin comillas:', data.planning_web_kv_value);
-                return data.planning_web_kv_value; // Devolver el string directamente
-            }
-            
-            if (data.planning_web_kv_value === '[]' || data.planning_web_kv_value === '{}') {
-                console.log('🔧 Corrigiendo array/object vacío:', data.planning_web_kv_value);
-                return JSON.parse(data.planning_web_kv_value); // Parsear correctamente
-            }
-            
-            if (data.planning_web_kv_value === '"[]"' || data.planning_web_kv_value === '"{}"') {
-                console.log('🔧 Corrigiendo array/object vacío con comillas:', data.planning_web_kv_value);
-                return JSON.parse(data.planning_web_kv_value); // Parsear el string JSON
-            }
-            
-            if (data.planning_web_kv_value === '[object Object]') {
-                console.log('🔧 Corrigiendo [object Object]:', data.planning_web_kv_value);
-                return {};
-            }
-            
-            if (typeof data.planning_web_kv_value === 'string' && data.planning_web_kv_value.startsWith('{') && data.planning_web_kv_value.includes('true') && !data.planning_web_kv_value.includes('"')) {
-                console.log('🔧 Corrigiendo objeto sin comillas:', data.planning_web_kv_value);
-                try {
-                    const fixed = data.planning_web_kv_value.replace(/(\w+):/g, '"$1":');
-                    return JSON.parse(fixed);
-                } catch {
-                    console.log('🔧 No se pudo corregir objeto sin comillas, devolviendo objeto vacío');
-                    return {};
-                }
-            }
-            
-            if (typeof data.planning_web_kv_value === 'string' && data.planning_web_kv_value.includes('{') && data.planning_web_kv_value.includes('}')) {
-                console.log('🔧 Intentando corregir objeto mal formado:', data.planning_web_kv_value);
-                try {
-                    return JSON.parse(data.planning_web_kv_value);
-                } catch {
-                    console.log('🔧 No se pudo corregir, devolviendo objeto vacío');
-                    return {};
-                }
-            }
-            
             return null;
         }
-    } catch (error) { 
-        console.error('❌ Error crítico en fetchRemote:', error);
-        return null; 
-    } 
+
+        if (k === 'planningweb:widgets') {
+            if (Array.isArray(decoded)) return decoded;
+            if (typeof decoded === 'string') {
+                const parsed = decodePossiblyDoubleEncoded(decoded);
+                return Array.isArray(parsed) ? parsed : null;
+            }
+            return null;
+        }
+
+        if (k === 'planningweb:activeRoutineId') {
+            if (typeof decoded === 'string') {
+                const maybe = decodePossiblyDoubleEncoded(decoded);
+                return typeof maybe === 'string' ? maybe : String(maybe ?? '');
+            }
+            return String(decoded ?? '');
+        }
+
+        if (k === 'planningweb:lastVisit') {
+            const validDays = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
+            if (typeof decoded === 'string') {
+                const maybe = decodePossiblyDoubleEncoded(decoded);
+                if (typeof maybe === 'string' && validDays.includes(maybe)) return maybe;
+            }
+        }
+
+        if (typeof decoded === 'string') {
+            const maybe = parseJson(decoded);
+            return maybe !== null ? maybe : decoded;
+        }
+
+        return decoded;
+    } catch (error) {
+        console.error(' Error crítico en fetchRemote:', error);
+        return null;
+    }
 };
 
-const listRemoteKeys = async () => { 
-    try { 
+const listRemoteKeys = async () => {
+    try {
         let query = supabase.from("planning_web_key_value_store").select("planning_web_kv_key");
-        
-        if (authState.user) {
-            query = query.eq("user_id", authState.user.id);
-        }
-        
-        const { data, error } = await query; 
+
+        if (!authState.user) return [];
+        query = query.eq("user_id", authState.user.id);
+
+        const { data, error } = await query;
         if (error) {
             console.error('❌ Error en listRemoteKeys:', error);
-            return []; 
+            return [];
         }
-        
+
         return (data || [])
             .map(x => x.planning_web_kv_key)
             .filter(k => typeof k === "string" && k.startsWith(NS))
-            .map(k => k.substring(NS.length)); 
-    } catch (error) { 
+            .map(k => k.substring(NS.length));
+    } catch (error) {
         console.error('❌ Error crítico en listRemoteKeys:', error);
-        return []; 
-    } 
+        return [];
+    }
 };
 
 export const syncFromRemote = async (force = false) => {
     try {
-        console.log('🔄 Cargando datos desde BD (fuente de verdad)...');
+        if (!authState.user) return false;
         const remoteKeys = await listRemoteKeys();
-        let syncCount = 0;
-        let errorCount = 0;
-        
-        for (const k of remoteKeys) {
-            try {
-                const full = keyPrefix(k);
-                const remoteData = await fetchRemote(full);
-                
-                if (remoteData === null) {
-                    console.log(`⚠️ Datos remotos nulos para: ${k}`);
-                    continue;
-                }
-                
-                if (!isValidData(remoteData, k)) {
-                    console.error(`❌ Datos remotos inválidos para: ${k}`);
-                    errorCount++;
-                    continue;
-                }
-                
-                const localData = getLocal(full);
-                
-                if (localData === null || localData === undefined) {
-                    console.log(`📥 Cargando desde BD (no hay datos locales): ${k}`);
-                    putLocal(full, remoteData);
-                    syncCount++;
-                } else if (force || JSON.stringify(localData) !== JSON.stringify(remoteData)) {
-                    console.log(`🔄 Actualizando desde BD (datos diferentes): ${k}`);
-                    putLocal(full, remoteData);
-                    syncCount++;
-                } else {
-                    // console.log(`✅ Datos locales ya actualizados: ${k}`); // Verbose log removed
-                }
-            } catch (keyError) {
-                console.error(`❌ Error procesando ${k}:`, keyError);
-                errorCount++;
+        const results = await Promise.all(remoteKeys.map(async (k) => {
+            const fullKey = keyPrefix(k);
+            const v = await fetchRemote(fullKey);
+            return { k, fullKey, v };
+        }));
+
+        for (const r of results) {
+            if (r.v !== null && isValidData(r.v, r.k)) {
+                putLocal(r.fullKey, r.v);
             }
         }
-        
-        console.log(`🎉 Sincronización desde BD completada: ${syncCount} actualizados, ${errorCount} errores`);
-        return errorCount === 0;
+        return true;
     } catch (error) {
         console.error('❌ Error crítico en syncFromRemote:', error);
         return false;
@@ -402,49 +393,56 @@ export const syncFromRemote = async (force = false) => {
 
 export const getItem = async (key) => {
     const k = keyPrefix(key);
-    
+
     try {
-        const remoteData = await fetchRemote(k);
-        if (remoteData !== null && isValidData(remoteData, key)) {
-            putLocal(k, remoteData);
+        if (!authState.user) return null;
+
+        const localData = getLocal(k);
+        if (localData !== null && isValidData(localData, key)) {
+            return localData;
+        }
+
+        if (!inFlightFetches.has(k)) {
+            inFlightFetches.set(k, (async () => {
+                const remoteData = await fetchRemote(k);
+                if (remoteData !== null && isValidData(remoteData, key)) {
+                    putLocal(k, remoteData);
+                    return remoteData;
+                }
+                return null;
+            })().finally(() => {
+                inFlightFetches.delete(k);
+            }));
+        }
+
+        const remote = await inFlightFetches.get(k);
+        if (remote !== null) {
             console.log(`📥 ${key}: cargado desde BD (fuente de verdad)`);
-            return remoteData;
-        } else if (remoteData !== null) {
-            console.error(`❌ Datos remotos inválidos para getItem(${key}):`, remoteData);
+            return remote;
         }
     } catch (error) {
         console.error(`❌ Error fetch remoto getItem(${key}):`, error);
     }
-    
-    const cached = getLocal(k);
-    if (cached !== null) {
-        console.log(`💾 ${key}: usando caché local (no hay datos en BD)`);
-        return cached;
-    }
-    
-    console.log(`⚠️ ${key}: no hay datos disponibles`);
+
     return null;
 };
 
 export const setItem = (key, value, syncRemote = true) => {
     const k = keyPrefix(key);
-    
-    // console.log('🔍 setItem llamado:', { key, k, value, type: typeof value, syncRemote });
-    
+
+    if (!authState.user) {
+        console.error(`❌ setItem(${key}) requiere sesión activa`);
+        return false;
+    }
+
     if (!isValidData(value, key)) {
         console.error(`❌ Datos inválidos para setItem(${key}):`, value);
         return false;
     }
-    
-    const ok = putLocal(k, value);
-    
+
+    putLocal(k, value);
+
     if (syncRemote) {
-        const isPotentiallyUnwantedEmpty = Array.isArray(value) && value.length === 0;
-        if (isPotentiallyUnwantedEmpty) {
-            console.log(`⚠️ Omitiendo sincronización automática de array vacío para: ${key}`);
-            return ok;
-        }
-        
         upsertRemote(k, value).catch(error => {
             console.error(`❌ Error sincronizando ${key}:`, error);
             setTimeout(() => {
@@ -454,56 +452,51 @@ export const setItem = (key, value, syncRemote = true) => {
             }, 2000);
         });
     }
-    
-    return ok;
+
+    return true;
 };
 
 export const removeItem = (key, remote = false) => {
     const k = keyPrefix(key);
-    const ok = removeLocal(k);
-    if (remote) {
-        deleteRemote(k).catch(error => {
-            console.error(`❌ Error eliminando remoto ${key}:`, error);
-        });
+    memStore.delete(k);
+    const pk = persistKey(k);
+    if (pk) {
+        try { localStorage.removeItem(pk); } catch { }
     }
-    return ok;
+    if (!remote) return true;
+    deleteRemote(k).catch(error => {
+        console.error(`❌ Error eliminando remoto ${key}:`, error);
+    });
+    return true;
 };
 
 export const keys = () => {
-    const out = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        if (k.startsWith(NS) && !k.startsWith(BACKUP_PREFIX)) {
-            out.push(k.substring(NS.length));
-        }
+    const fromMem = Array.from(memStore.keys())
+        .filter(k => typeof k === 'string' && k.startsWith(NS))
+        .map(k => k.substring(NS.length));
+    const fromPersisted = [];
+    const prefix = userCachePrefix();
+    if (prefix) {
+        try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith(prefix)) continue;
+                const full = k.substring(prefix.length);
+                if (full.startsWith(NS)) fromPersisted.push(full.substring(NS.length));
+            }
+        } catch { }
     }
-    return out;
+
+    return Array.from(new Set([...fromMem, ...fromPersisted]));
 };
 
 export const syncToRemote = async (key) => {
     try {
-        const k = keyPrefix(key);
-        const localData = getLocal(k);
-        
-        if (localData === null || localData === undefined) {
-            console.log(`⚠️ No hay datos locales para sincronizar: ${key}`);
-            return false;
-        }
-        
-        if (!isValidData(localData, key)) {
-            console.error(`❌ Datos locales inválidos para sincronizar: ${key}`);
-            return false;
-        }
-        
-        console.log(`📤 Sincronizando explícitamente a BD: ${key}`);
-        const success = await upsertRemote(k, localData);
-        
-        if (success) {
-            console.log(`✅ Sincronizado exitosamente: ${key}`);
-        }
-        
-        return success;
+        if (!authState.user) return false;
+        const fullKey = keyPrefix(key);
+        const localData = getLocal(fullKey);
+        if (localData === null || localData === undefined) return false;
+        return await upsertRemote(fullKey, localData);
     } catch (error) {
         console.error(`❌ Error en syncToRemote(${key}):`, error);
         return false;
@@ -512,26 +505,16 @@ export const syncToRemote = async (key) => {
 
 export const diagnoseData = async () => {
     console.log('🔍 Iniciando diagnóstico de datos...');
-    
-    const localKeys = keys();
     const remoteKeys = await listRemoteKeys();
-    
-    console.log(`📊 Claves locales: ${localKeys.length}`);
     console.log(`📊 Claves remotas: ${remoteKeys.length}`);
     
     const issues = [];
     
     for (const key of ['routines', 'widgets', 'activeRoutineId']) {
-        const local = getLocal(keyPrefix(key));
         const remote = await fetchRemote(keyPrefix(key));
         
         console.log(`📋 ${key}:`);
-        console.log(`   Local: ${local ? '✅' : '❌'} ${Array.isArray(local) ? `(${local.length} items)` : ''}`);
         console.log(`   Remoto: ${remote ? '✅' : '❌'} ${Array.isArray(remote) ? `(${remote.length} items)` : ''}`);
-        
-        if (local && !isValidData(local, key)) {
-            issues.push(`Datos locales corruptos: ${key}`);
-        }
         if (remote && !isValidData(remote, key)) {
             issues.push(`Datos remotos corruptos: ${key}`);
         }
