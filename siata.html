@@ -244,16 +244,21 @@
     <script type="module">
       import { qs, on, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator } from "./js/ui.js";
       import { renderHeader } from "./js/header.js";
+      import { qs, on, initTheme, toggleTheme, updateThemeLabel, initSyncIndicator } from "./js/ui.js";
+      import { renderHeader } from "./js/header.js";
       import { initAuth, onAuthChange } from "./js/auth.js";
       import { initAuthUI } from "./js/auth_ui.js";
+      import { getItem, setItem, syncFromRemote } from "./js/storage.js";
       
       const wireSettings = async () => {
         renderHeader();
         initTheme();
         initSyncIndicator();
         await initAuth();
-        onAuthChange((user) => {
+        await initAuth();
+        onAuthChange(async (user) => {
             initAuthUI(user);
+            if (user) await syncFromRemote(true);
         });
 
         const modal = qs("#settingsModal");
@@ -277,7 +282,19 @@
                 modal.classList.remove("flex");
             }
         });
-        on(save, "click", () => {
+        // Load settings
+        const nsEl = qs("#notifyBeforeStart");
+        const neEl = qs("#notifyBeforeEnd");
+        const ns = await getItem("notifyBeforeStart") ?? 10;
+        const ne = await getItem("notifyBeforeEnd") ?? 5;
+        if (nsEl) nsEl.value = ns;
+        if (neEl) neEl.value = ne;
+
+        on(save, "click", async () => {
+             const v1 = Number(nsEl?.value || 10);
+             const v2 = Number(neEl?.value || 5);
+             await setItem("notifyBeforeStart", Math.max(0, v1), true);
+             await setItem("notifyBeforeEnd", Math.max(0, v2), true);
              if(modal) {
                 modal.classList.add("hidden");
                 modal.classList.remove("flex");

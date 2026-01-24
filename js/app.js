@@ -396,13 +396,21 @@ const initHome = async () => {
 
         // 3️⃣ Inicializar autenticación
         await initAuth();
-        onAuthChange((user) => {
+        onAuthChange(async (user) => {
             initAuthUI(user);
-            // Si el usuario cambia (login/logout), forzamos una recarga de datos
-            // Pero como authStateChange dispara al inicio también, debemos tener cuidado.
-            // Por ahora initAuthUI maneja el botón visual.
-            // La sincronización de datos ya se maneja en el listener interno de auth.js si quisiéramos,
-            // pero mejor dejamos que la recarga de página al login maneje todo limpio.
+            if (user) {
+                console.log('👤 Usuario detectado, sincronizando datos...');
+                const ok = await syncFromRemote(true); // Force sync
+                if (ok) {
+                    await renderWidgetsOnHome();
+                    await activeRoutineSelector();
+                    await dayGridLayout();
+                    console.log('✅ Datos restaurados tras login');
+                }
+            } else {
+                // If logout, maybe clear UI or just leave it (clearLocalData handled by auth_ui)
+                renderHeader(); // Refresh header state
+            }
         });
 
     } catch (error) {

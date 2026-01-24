@@ -19,8 +19,12 @@ const initPage = async () => {
   initSyncIndicator(); // New
   
   await initAuth();
-  onAuthChange((user) => {
+  onAuthChange(async (user) => {
       initAuthUI(user);
+      if (user) {
+          await syncFromRemote(true);
+          await renderRoutines();
+      }
   });
   await renderRoutines();
   await wireEditor();

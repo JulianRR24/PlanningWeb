@@ -11,8 +11,12 @@ const initPage = async () => {
     initTheme();
     initSyncIndicator(); // New
     await initAuth();
-    onAuthChange((user) => {
+    onAuthChange(async (user) => {
         initAuthUI(user);
+        if (user) {
+            await syncFromRemote(true);
+            await renderList();
+        }
     });
     await wireSettings();
     on(qs("#saveWidget"), "click", async () => saveWidget());
