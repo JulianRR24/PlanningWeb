@@ -29,7 +29,6 @@ const showModal = (id) => {
     const el = qs(id);
     if (el) {
         el.classList.remove('hidden');
-        el.classList.add('flex');
     }
 };
 
@@ -37,7 +36,6 @@ const hideModal = (id) => {
     const el = qs(id);
     if (el) {
         el.classList.add('hidden');
-        el.classList.remove('flex');
     }
 };
 
