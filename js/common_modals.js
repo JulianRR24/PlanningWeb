@@ -215,14 +215,66 @@ export const ensureCommonModals = () => {
   );
 };
 
+let settingsModalWired = false;
+let settingsDeps = null;
+
+const PERM_CLASSES = [
+  "bg-emerald-600",
+  "text-white",
+  "border-emerald-600",
+  "bg-rose-600",
+  "border-rose-600",
+  "bg-slate-100",
+  "text-slate-900",
+  "dark:bg-slate-700",
+  "dark:text-white"
+];
+
+const setPermButtonState = (btn, state, baseText) => {
+  if (!btn) return;
+  btn.classList.remove(...PERM_CLASSES);
+
+  if (state === "granted") {
+    btn.classList.add("bg-emerald-600", "border-emerald-600", "text-white");
+    btn.textContent = `${baseText} (concedido)`;
+    return;
+  }
+
+  if (state === "denied") {
+    btn.classList.add("bg-rose-600", "border-rose-600", "text-white");
+    btn.textContent = `${baseText} (denegado)`;
+    return;
+  }
+
+  btn.classList.add("bg-slate-100", "text-slate-900", "dark:bg-slate-700", "dark:text-white");
+  btn.textContent = baseText;
+};
+
+const getGeoPermissionState = async () => {
+  try {
+    if (!navigator?.permissions?.query) return null;
+    const status = await navigator.permissions.query({ name: "geolocation" });
+    return status?.state ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const refreshPermissionIndicators = async (d) => {
+  const notifyBtn = d.qs("#askNotifyPerm");
+  const geoBtn = d.qs("#askGeoPerm");
+
+  const notifyState = ("Notification" in window && typeof Notification?.permission === "string")
+    ? Notification.permission
+    : null;
+  setPermButtonState(notifyBtn, notifyState, "Permiso de notificaciones");
+
+  const geoState = await getGeoPermissionState();
+  setPermButtonState(geoBtn, geoState, "Permiso de ubicación");
+};
+
 export const wireSettingsModal = async ({ getItem, setItem, qs, on, toggleTheme, updateThemeLabel }) => {
-  const settingsBtn = qs("#settingsBtn");
-  const modal = qs("#settingsModal");
-  const closeBtn = qs("#settingsClose");
-  const saveSettings = qs("#saveSettings");
-  const askNotifyPerm = qs("#askNotifyPerm");
-  const askGeoPerm = qs("#askGeoPerm");
-  const themeToggle = qs("#themeToggle");
+  settingsDeps = { getItem, setItem, qs, on, toggleTheme, updateThemeLabel };
 
   const ns = (await getItem("notifyBeforeStart")) ?? 10;
   const ne = (await getItem("notifyBeforeEnd")) ?? 5;
@@ -231,41 +283,102 @@ export const wireSettingsModal = async ({ getItem, setItem, qs, on, toggleTheme,
   if (nsEl) nsEl.value = ns;
   if (neEl) neEl.value = ne;
 
-  on(settingsBtn, "click", () => {
-    if (!modal) return;
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-    updateThemeLabel();
-  });
+  if (settingsModalWired) return;
+  settingsModalWired = true;
 
-  on(closeBtn, "click", () => {
-    if (!modal) return;
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-  });
+  document.addEventListener("click", async (e) => {
+    const d = settingsDeps;
+    if (!d) return;
 
-  on(themeToggle, "click", toggleTheme);
+    const target = e.target;
+    if (!(target instanceof Element)) return;
 
-  on(saveSettings, "click", async () => {
-    const v1 = Number(nsEl?.value || 10);
-    const v2 = Number(neEl?.value || 5);
-    await setItem("notifyBeforeStart", Math.max(0, v1), true);
-    await setItem("notifyBeforeEnd", Math.max(0, v2), true);
-    if (!modal) return;
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-  });
+    const modal = d.qs("#settingsModal");
 
-  on(askNotifyPerm, "click", async () => {
-    try {
-      await Notification.requestPermission();
-    } catch { }
-  });
+    const clickedSettingsBtn = target.closest("#settingsBtn");
+    if (clickedSettingsBtn) {
+      if (!modal) return;
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      d.updateThemeLabel();
+      await refreshPermissionIndicators(d);
+      return;
+    }
 
-  on(askGeoPerm, "click", async () => {
-    try {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(() => { }, () => { }, { enableHighAccuracy: true, timeout: 8000 });
-    } catch { }
+    const clickedClose = target.closest("#settingsClose");
+    if (clickedClose) {
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      return;
+    }
+
+    const clickedTheme = target.closest("#themeToggle");
+    if (clickedTheme) {
+      d.toggleTheme();
+      return;
+    }
+
+    const clickedSave = target.closest("#saveSettings");
+    if (clickedSave) {
+      const nsEl = d.qs("#notifyBeforeStart");
+      const neEl = d.qs("#notifyBeforeEnd");
+      const v1 = Number(nsEl?.value || 10);
+      const v2 = Number(neEl?.value || 5);
+      await d.setItem("notifyBeforeStart", Math.max(0, v1), true);
+      await d.setItem("notifyBeforeEnd", Math.max(0, v2), true);
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      return;
+    }
+
+    const clickedNotifyPerm = target.closest("#askNotifyPerm");
+    if (clickedNotifyPerm) {
+      try {
+        if (!window.isSecureContext) {
+          alert("Los permisos requieren HTTPS o localhost.");
+          return;
+        }
+        if (!("Notification" in window) || typeof Notification?.requestPermission !== "function") {
+          alert("Este navegador no soporta permisos de notificaciones.");
+          return;
+        }
+        const result = await Notification.requestPermission();
+        console.log("🔔 Notification permission:", result);
+        await refreshPermissionIndicators(d);
+      } catch (err) {
+        console.error("❌ Error solicitando permiso de notificaciones:", err);
+      }
+      return;
+    }
+
+    const clickedGeoPerm = target.closest("#askGeoPerm");
+    if (clickedGeoPerm) {
+      try {
+        if (!window.isSecureContext) {
+          alert("Los permisos requieren HTTPS o localhost.");
+          return;
+        }
+        if (!navigator.geolocation) {
+          alert("Este navegador no soporta geolocalización.");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          async () => {
+            console.log("📍 Geolocation permission: granted");
+            await refreshPermissionIndicators(d);
+          },
+          async (err) => {
+            console.warn("📍 Geolocation permission error:", err);
+            await refreshPermissionIndicators(d);
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      } catch (err) {
+        console.error("❌ Error solicitando permiso de ubicación:", err);
+      }
+      return;
+    }
   });
 };

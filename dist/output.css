@@ -558,8 +558,8 @@
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
   }
-  .border-emerald-500 {
-    border-color: var(--color-emerald-500);
+  .border-emerald-600 {
+    border-color: var(--color-emerald-600);
   }
   .border-gray-200 {
     border-color: var(--color-gray-200);
@@ -572,6 +572,9 @@
   }
   .border-rose-200 {
     border-color: var(--color-rose-200);
+  }
+  .border-rose-600 {
+    border-color: var(--color-rose-600);
   }
   .border-slate-200 {
     border-color: var(--color-slate-200);
@@ -587,6 +590,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-black) 40%, transparent);
     }
+  }
+  .bg-emerald-600 {
+    background-color: var(--color-emerald-600);
   }
   .bg-gray-100 {
     background-color: var(--color-gray-100);
@@ -605,6 +611,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-rose-500) 10%, transparent);
     }
+  }
+  .bg-rose-600 {
+    background-color: var(--color-rose-600);
   }
   .bg-slate-50 {
     background-color: var(--color-slate-50);
@@ -1129,6 +1138,11 @@
   .dark\:text-slate-900 {
     &:where(.dark, .dark *) {
       color: var(--color-slate-900);
+    }
+  }
+  .dark\:text-white {
+    &:where(.dark, .dark *) {
+      color: var(--color-white);
     }
   }
   .dark\:hover\:bg-rose-900\/10 {
