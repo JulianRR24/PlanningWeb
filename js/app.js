@@ -97,11 +97,11 @@ const renderSiataLink = () => {
 };
 
 const picoPlacaSchedule = () => ({
-    mon: ["6", "9"],
-    tue: ["5", "7"],
-    wed: ["1", "8"],
-    thu: ["0", "2"],
-    fri: ["3", "4"],
+    mon: ["1", "7"],
+    tue: ["0", "3"],
+    wed: ["4", "6"],
+    thu: ["5", "9"],
+    fri: ["2", "8"],
     sat: [],
     sun: []
 });
