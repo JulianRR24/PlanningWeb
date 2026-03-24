@@ -422,7 +422,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 const startNotificationScheduler = async () => {
-    const tick = async () => {
+    let intervalId = null;
+    
+    const tick = async (isInitial = false) => {
         if (Notification?.permission !== "granted") return;
         const routineId = await getItem("activeRoutineId") || "";
         const routines = await getItem("routines") || [];
@@ -430,34 +432,41 @@ const startNotificationScheduler = async () => {
         if (!routine) return;
         const key = todayKey();
         const events = routine.days?.[key] || [];
+        if (events.length === 0) return;
+        
         const beforeStart = Number(await getItem("notifyBeforeStart") ?? 10);
         const beforeEnd = Number(await getItem("notifyBeforeEnd") ?? 5);
         const now = new Date();
         const nowMin = now.getHours() * 60 + now.getMinutes();
         const dateKey = now.toISOString().slice(0, 10);
         const notifKey = `notified:${dateKey}`;
-        const notified = await getItem(notifKey) || {};
+        const notified = (await getItem(notifKey)) || {};
         const notify = (title, options) => {
             try {
                 if (swReg?.showNotification) swReg.showNotification(title, options); else new Notification(title, options);
             } catch { }
         };
+        
         events.forEach(ev => {
             const s = hhmmToMinutes(ev.start);
             const e = hhmmToMinutes(ev.end);
             const nsMin = Math.max(0, s - beforeStart);
             const neMin = Math.max(0, e - beforeEnd);
-            if (nowMin >= nsMin) {
+            
+            if (nowMin >= nsMin && nowMin <= s + 1) {
                 const id = ev.id + "_start";
                 if (!notified[id]) { notify(ev.title || "Evento", { body: "Próximo inicio " + ev.start }); notified[id] = true; }
             }
-            if (nowMin >= neMin) {
+            if (nowMin >= neMin && nowMin <= e + 1) {
                 const id2 = ev.id + "_end";
                 if (!notified[id2]) { notify(ev.title || "Evento", { body: "Próximo fin " + ev.end }); notified[id2] = true; }
             }
         });
         await setItem(notifKey, notified);
     };
-    await tick();
-    setInterval(async () => await tick(), 60000);
+    
+    await tick(true);
+    if (!intervalId) {
+        intervalId = setInterval(() => tick(false), 60000);
+    }
 };
